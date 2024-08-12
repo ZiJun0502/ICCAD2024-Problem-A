@@ -1,0 +1,1 @@
+./release/cost_estimators/cost_estimator_1 -library ./release/lib/lib1.json -netlist ./playground/1/1-abc.v/

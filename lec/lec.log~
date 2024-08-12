@@ -1,0 +1,34 @@
+                          CONFORMAL (R)
+                   Version 21.10-p100 (15-Apr-2021) (64 bit executable)
+   Copyright (c) Cadence Design Systems, Inc., 1997-2021. All Rights Reserved
+
+
+This program is proprietary and confidential information belonging to
+Cadence Design Systems, Inc., and may be used and disclosed only as authorized
+in a license agreement controlling such use and disclosure.
+
+// Warning: This version is 1196 days old. You can download the latest version from http://downloads.cadence.com.
+
+// Command: setenv TOP_DESIGN top_809568696_809776567_809698999_863110837_1234615
+Set variable 'TOP_DESIGN' as 'top_809568696_809776567_809698999_863110837_1234615'
+// Command: read design ../release/netlists/design4.v -golden -verilog2k
+// Parsing file ../release/netlists/design4.v ...
+// Golden root module is set to 'top_809568696_809776567_809698999_863110837_1234615'
+// Note: Read VERILOG design successfully
+CPU time     : 0.27    seconds
+Elapse time  : 0       seconds
+Memory usage : 63.98   M bytes
+// Command: read design ../playground/design_preprocessed.v -revised
+// Parsing file ../playground/design_preprocessed.v ...
+// Revised root module is set to 'top_810026173_826291639_946996917_1246901'
+// Warning: (HRC3.10a) An input port is declared, but it is not completely used in the module (occurrence:3)
+// Note: Read VERILOG design successfully
+// Command: set root module $TOP_DESIGN -golden
+// Warning: Golden root module is already at 'top_809568696_809776567_809698999_863110837_1234615'
+// Command: set root module $TOP_DESIGN -revised
+// Error: Module name 'top_809568696_809776567_809698999_863110837_1234615' not found in Revised.
+// 'dofile /home/a_0035/Python/lec/setup.do' is aborted at line 14
+// 'dofile /home/a_0035/Python/lec/lec_tasks.do' is aborted at line 1
+// Command: quit
+// Error: Unknown command quit.
+// Command: exit

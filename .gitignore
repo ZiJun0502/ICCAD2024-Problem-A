@@ -1,0 +1,15 @@
+# Ignore specific file types
+*.txt
+*.v
+*.genlib
+*.csv
+
+# Ignore specific directories
+build/
+dist/
+playground/
+__pycache__/
+DRiLLS/__pycache__/
+ga/__pycache__/
+sa/__pycache__/
+utils/__pycache__/
