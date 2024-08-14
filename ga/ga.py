@@ -14,7 +14,7 @@ def log(message: str, end='\n'):
 class GA:
     def __init__(self, n=50, n_init=100, dim=8, dim_limit=[], bits=5, 
                  crossover_rate=0.9, mutation_rate=0.4, n_iter=20, k_solution=5,
-                 design_path="./playground/design_preprocessed.v", init_population=[],
+                 design_path="", init_population=[],
                  dir_suffix="ga_genlib"):
         self.dir_suffix = dir_suffix
         self.n = n
@@ -26,8 +26,11 @@ class GA:
         self.mutation_rate = mutation_rate
         self.n_iter = n_iter
         self.k_solution = k_solution
-        self.design_path = design_path
         self.config = Config()
+        if not design_path:
+            self.design_path = join(self.config.params['playground_dir'], "design_preprocessed.v")
+        else:
+            self.design_path = design_path
         self.playground_dir = join(self.config.params['playground_dir'], dir_suffix)
         if not exists(self.playground_dir):
             mkdir(self.playground_dir)
@@ -187,7 +190,7 @@ class GA:
         start = time.time()
         fitnesses = self.get_fitnesses(self.population)
         end = time.time()
-        log(f"Fitness calculation takes {end-start:.2f} seconds")
+        # log(f"Fitness calculation takes {end-start:.2f} seconds")
         # for i, c in enumerate(self.population):
         #     for j, g in enumerate(self.population[i]):
         #         print(self.gate_types[j], self.decode_gene(g), end=', ')

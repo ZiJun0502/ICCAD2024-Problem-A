@@ -8,7 +8,7 @@ from DRiLLS.abcSession import abcSession
 class SA:
     def __init__(self, init_solution, init_cost, cell_map,
                  temp_h=1000, temp_l = 0.1, cooling_rate=0.95, num_iterations=100,
-                 dir_suffix="sa"):
+                 dir_suffix="sa", design_path=""):
         """
         Initializes the Simulated Annealing algorithm.
         
@@ -35,6 +35,8 @@ class SA:
         self.cooling_rate = cooling_rate
         self.num_iterations = num_iterations
         self.cell_map = cell_map
+        self.design_path = design_path if design_path else join(self.config.params['playground_dir'], "design_preprocessed.v")
+
         self.best_solution = np.copy(self.current_solution)
         self.best_cost = init_cost
         self.best_iteration = -1
@@ -48,6 +50,8 @@ class SA:
         for i in range(len(neighbor)):
             perturbation = np.random.normal(0, 0.006 * neighbor[i])
             neighbor[i] += perturbation
+        # perturbation = np.random.normal(0, 0.05)
+        # neighbor += perturbation
         
         # Ensure the values are within the desired range [0, 100]
         neighbor = np.clip(neighbor, 0, 100)
@@ -84,6 +88,7 @@ class SA:
             
             # Cool down the temperature
             self.temperature *= self.cooling_rate
+            # self.temperature = self.temp_l + (self.temp_h-self.temp_l) * (self.num_iterations-iteration) / self.num_iterations
             self.temperature = max(self.temp_l, self.temperature)
         
         self.set_cell_map(self.best_solution)
@@ -97,7 +102,7 @@ class SA:
             dest=library_path,
         )
         self.abcSession.run_ga_genlib(
-            design_path="./playground/design_preprocessed.v",
+            design_path=self.design_path,
             library_path=library_path,
             dest=target_netlist_path
         )

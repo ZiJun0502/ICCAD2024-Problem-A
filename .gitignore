@@ -3,7 +3,9 @@
 *.v
 *.genlib
 *.csv
-
+*.history
+*.spec
+main_stats
 # Ignore specific directories
 build/
 dist/

@@ -16,6 +16,9 @@ from utils.post_optimizor import PostOptimizor
 from sa.sa import SA
 from ga.ga import GA
 from ga.abc_ga import AbcGA
+
+import cProfile
+import pstats
 # from drills.fixed_optimization import optimize_with_fixed_script
 # from pyfiglet import Figlet
 
@@ -23,8 +26,7 @@ def log(message):
     print('[DRiLLS {:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now()) + "] " + message)
     pass
 
-if __name__ == '__main__':
-    # read args and yaml
+def main():
     args = parse_arguments()
     with open('params.yml', 'r') as file:
         params = yaml.safe_load(file)
@@ -32,6 +34,8 @@ if __name__ == '__main__':
     params['design_file'] = args.netlist
     params['cost_estimator'] = args.cost_function
     params['output_file'] = args.output
+    if not os.path.exists(params['playground_dir']):
+        os.mkdir(params['playground_dir'])
     print(params)
     # init modules
     config = Config(
@@ -80,21 +84,17 @@ if __name__ == '__main__':
         dest="./lib/library_multi.genlib",
         cell_map=best_cells_map
     )
-    # for gate, cells in best_cells_map.items():
-    #     print(f"{gate}: ", end='')
-    #     for cell in cells:
-    #         print(cell['cell_name'], end='')
+    # sa
     sa_init_solution = []
     for i, (gate_type, cells) in enumerate(best_cells_map.items()):
         for j, cell in enumerate(cells):
             sa_init_solution.append(cell['cost'])
-    print(len(sa_init_solution))
     sa = SA(
         init_solution=sa_init_solution, 
         init_cost=min_cost, 
         cell_map=best_cells_map,
-        temp_h=4000000, temp_l=0.1, 
-        cooling_rate=0.8, num_iterations=1000,
+        temp_h=4000000000, temp_l=0.1, 
+        cooling_rate=0.5, num_iterations=1000,
     )
     min_cell_map, min_cost = sa.run()
     library.write_library_genlib_all(
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     abc_ga.output_netlist()
     # write best netlists
     min_cost = min(costs)
-    
+
     opt = PostOptimizor()
     # phase 3 post map
     best_netlist, cost = opt.post_map(params['output_file'].replace('.v', '_unmapped.v'))
@@ -162,3 +162,11 @@ if __name__ == '__main__':
             dest.write(src.read())
     print(f"FINAL_min_cost: {cost_interface.get_cost(params['output_file'])}")
     
+
+if __name__ == '__main__':
+    # read args and yaml
+    # cProfile.run("main()", "main_stats")
+
+    # p = pstats.Stats("main_stats")
+    # p.sort_stats("cumulative").print_stats()
+    main()

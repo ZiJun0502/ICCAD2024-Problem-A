@@ -24,8 +24,12 @@ actions:
   - drwsat2
   - if -g
   - if -p
+  # - fx
+  # - dsd
+  - cleanup
+  - collapse
 # the directory to hold the playground an agent uses to practice
-playground_dir: playground
+playground_dir: playground/design4-cost1
 
 # agent training parameters
 # rl_n_episodes: 5
@@ -33,8 +37,8 @@ playground_dir: playground
 abc_ga_seq_len: 10
 abc_ga_n_init: 100
 abc_ga_n: 50
-abc_ga_n_iter: 10
+abc_ga_n_iter: 5
 
 ga_n_init: 100
 ga_n: 50
-ga_n_iter: 20
+ga_n_iter: 5

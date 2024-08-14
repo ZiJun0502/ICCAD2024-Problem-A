@@ -70,7 +70,7 @@ class PostOptimizor:
         min_cost = float('inf')
         min_iter = -1
         min_design_path = ""
-        for i in range(5):
+        for i in range(6):
             genlib_path = f"./lib/library_{i}.genlib"
             design_dest = design_path.replace(".v", f"_{i}.v")
             cost = self.abcSession.run_ga_genlib(design_path, genlib_path, design_dest)
@@ -79,7 +79,7 @@ class PostOptimizor:
                 min_cost = cost
                 min_iter = i
                 min_design_path = design_dest
-        return f"playground/{min_design_path}", min_cost
+        return f"{min_design_path}", min_cost
 
 
     def insert_buffers_(self, net, fanout, max_fanout, buf_cell_name):

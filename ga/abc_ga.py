@@ -29,7 +29,7 @@ class AbcGA(GA):
         while not self.pq.empty():
             cost, chromosome, id, iteration = self.pq.get()
             action_seq = self.decode_chromosome(chromosome)
-            costs.append(cost)
+            costs.append(-cost)
             min_action_seqs.append(action_seq)
             if self.pq.empty():
                 self.best_iteration = iteration
