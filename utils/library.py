@@ -1,6 +1,9 @@
 from json import load
 from utils.cost_interface import CostInterface
 from numpy import percentile
+from utils.config import Config
+from os.path import join, exists
+from os import mkdir
 import random
 class Library:
     _instance = None
@@ -23,10 +26,14 @@ class Library:
             self.load_library(library_path)
             self.get_lowest()
             self.omit_large_cell()
-            self.write_library_genlib_all('./lib/init_library.genlib')
+            self.config = Config()
+            self.genlib_dir_path = join(self.config.params['playground_dir'], "lib")
+            if not exists(self.genlib_dir_path):
+                mkdir(self.genlib_dir_path)
+            self.write_library_genlib_all(join(self.genlib_dir_path, 'init_library.genlib'))
             self.write_library_genlib(
                 chosen_cell_map = self.min_cell_map,
-                dest = './lib/library_min.genlib',
+                dest = join(self.genlib_dir_path, 'library_min.genlib'),
             )
             self._initialized = True
     def load_library(self, library_path):

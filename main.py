@@ -36,6 +36,9 @@ def main():
     params['output_file'] = args.output
     if not os.path.exists(params['playground_dir']):
         os.mkdir(params['playground_dir'])
+    params['playground_dir'] = os.path.join(params['playground_dir'], f"{os.path.basename(params['design_file'][:-2])}-{os.path.basename(params['cost_estimator'])}")
+    if not os.path.exists(params['playground_dir']):
+        os.mkdir(params['playground_dir'])
     print(params)
     # init modules
     config = Config(
@@ -75,17 +78,17 @@ def main():
                     best_cells_map[gate_type].append(cell)
             library.write_library_genlib(
                 best_cell_map, 
-                f"./lib/library_{i}.genlib",
+                os.path.join(library.genlib_dir_path, f"library_{i}.genlib"),
             )
             if i == len(best_cell_maps) - 1:
                 library.write_library_genlib(
                     best_cell_map, 
-                    f"./lib/library.genlib",
+                    os.path.join(library.genlib_dir_path, "library.genlib"),
                 )
                 min_cost_ga_genlib = -costs[i]
                 min_cell_map = best_cell_map
         library.write_library_genlib_all(
-            dest="./lib/library_multi.genlib",
+            dest=os.path.join(library.genlib_dir_path, "library_multi.genlib"),
             cell_map=best_cells_map
         )
         # sa
@@ -104,13 +107,13 @@ def main():
         if min_cost_sa < min_cost_ga_genlib:
             library.write_library_genlib_all(
                 cell_map=min_cell_map, 
-                dest=f"./lib/library.genlib",
+                dest=os.path.join(library.genlib_dir_path, "library.genlib")
             )
         # phase 2 abc_ga
         abc_ga = AbcGA(
             design_path=abc_session.preprocessed_design_path,
             output_file=params['output_file'],
-            library_path='./lib/library.genlib',
+            library_path=os.path.join(library.genlib_dir_path, "library.genlib"),
             actions=params['actions'],
             mutation_rate=0.5,
             n=params['abc_ga_n'],
@@ -126,11 +129,11 @@ def main():
 
         opt = PostOptimizor()
         # phase 3 post map
-        best_netlist, cost = opt.post_map(params['output_file'].replace('.v', '_unmapped.v'))
-        if cost < min_cost:
-            with open(best_netlist, 'r') as src:
-                with open(params['output_file'], 'w') as dest:
-                    dest.write(src.read())
+        # best_netlist, cost = opt.post_map(params['output_file'].replace('.v', '_unmapped.v'))
+        # if cost < min_cost:
+        #     with open(best_netlist, 'r') as src:
+        #         with open(params['output_file'], 'w') as dest:
+        #             dest.write(src.read())
         # phase 4 add buffer
         buffer_temp_dir = os.path.join(params['playground_dir'], "buffer")
         if not os.path.exists(buffer_temp_dir):
@@ -142,7 +145,7 @@ def main():
         for buf_cell in library.cell_map['buf']:
             buf_cell_name = buf_cell['cell_name']
             for i, max_fanout in enumerate(range(2, 22, 2)):
-                file_name = params['output_file'].replace('.v', f"_{buf_cell_name}_fan_{max_fanout}.v")
+                file_name = os.path.basename(params['output_file']).replace('.v', f"_{buf_cell_name}_fan_{max_fanout}.v")
                 dest = os.path.join(buffer_temp_dir, file_name)
                 opt.insert_buffers(params['output_file'], dest_path=dest, max_fanout=max_fanout, buf_cell_name=buf_cell_name)
                 cost = cost_interface.get_cost(dest)

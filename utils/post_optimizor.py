@@ -6,6 +6,7 @@ from collections import defaultdict
 from DRiLLS.abcSession import abcSession
 from utils.cost_interface import CostInterface
 from utils.library import Library
+from utils.config import Config
 class PostOptimizor:
     _instance = None
     _initialized = False
@@ -17,12 +18,13 @@ class PostOptimizor:
     def __init__(self, k_genlib=5):
         if not self._initialized:
             self.library = Library()
+            self.config = Config()
             self.cost_interface = CostInterface()
             self.abcSession = abcSession()
             self.k_genlib = k_genlib
             self._initialized = True
     def run_gate_sizing(self, design_path, genlib_path="", cell_map={}):
-        playground_dir = "./playground/gateSizing/"
+        playground_dir = join(self.config.params['playground_dir'], "gateSizing")
         if not exists(playground_dir):
             mkdir(playground_dir)
         design_name = basename(design_path)

@@ -1,11 +1,12 @@
 import subprocess
 import csv
 import time
+import os
 
 # designs = [f"design{i}.v" for i in range(1, 7)]
 # cost_estimators = [f"cost_estimator_{i}" for i in range(1, 9)]
-designs = [f"design{i}.v" for i in [2]]
-cost_estimators = [f"cost_estimator_{i}" for i in [4, 5, 7, 8]]
+designs = [f"design{i}.v" for i in [1]]
+cost_estimators = [f"cost_estimator_{i}" for i in [7, 8]]
 # designs = [f"design{i}.v" for i in range(1, 7)]
 # cost_estimators = [f"cost_estimator_{i}" for i in range(1, 9)]
 output_csv = "results.csv"
@@ -15,12 +16,15 @@ results = []
 
 for design in designs:
     for cost_estimator in cost_estimators:
+        output_dir = os.path.join("./playground", f"{design[:-2]}-{cost_estimator}")
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
         command = [
             "python", "main.py",
             "-cost_function", f"./release/cost_estimators/{cost_estimator}",
             "-library", "./release/lib/lib1.json",
             "-netlist", f"./release/netlists/{design}",
-            "-output", "./a.v"
+            "-output", os.path.join(output_dir, "a.v")
         ]
         
         try:
