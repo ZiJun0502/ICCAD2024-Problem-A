@@ -49,11 +49,13 @@ def main():
         library_path=args.library                           
     )
     abc_session = abcSession()
-    start, end = 0, 0
+    session_start = time.time()
+    session_end = session_start
     final_min_cost = float('inf')
-    while end - start < 3600:
-        start = time.time()
+    while session_end - session_start == 0:
+        min_cost = float('inf')
         #phase 1 GA
+        epoch_start = time.time()
         ga = GA(
             n=params['ga_n'],
             n_init=params['ga_n_init'],
@@ -64,7 +66,6 @@ def main():
         )
         ga.run()
         best_cell_maps, costs = ga.get_results()
-        min_cost = float('inf')
         min_cell_map = None
         # write best genlibs
         best_cells_map = {gate_type: [] for gate_type in library.gate_types}
@@ -81,7 +82,7 @@ def main():
                     best_cell_map, 
                     f"./lib/library.genlib",
                 )
-                min_cost = -costs[i]
+                min_cost_ga_genlib = -costs[i]
                 min_cell_map = best_cell_map
         library.write_library_genlib_all(
             dest="./lib/library_multi.genlib",
@@ -97,13 +98,14 @@ def main():
             init_cost=min_cost, 
             cell_map=best_cells_map,
             temp_h=4000000000, temp_l=0.1, 
-            cooling_rate=0.5, num_iterations=1000,
+            cooling_rate=0.5, num_iterations=500,
         )
-        min_cell_map, min_cost = sa.run()
-        library.write_library_genlib_all(
-            cell_map=min_cell_map, 
-            dest=f"./lib/library.genlib",
-        )
+        min_cell_map, min_cost_sa = sa.run()
+        if min_cost_sa < min_cost_ga_genlib:
+            library.write_library_genlib_all(
+                cell_map=min_cell_map, 
+                dest=f"./lib/library.genlib",
+            )
         # phase 2 abc_ga
         abc_ga = AbcGA(
             design_path=abc_session.preprocessed_design_path,
@@ -116,7 +118,6 @@ def main():
             n_iter=params['abc_ga_n_iter'],
             dim_limit=[len(params['actions']) for _ in range(params['abc_ga_seq_len'])],
         )
-        print([len(params['actions']) for _ in range(params['abc_ga_seq_len'])])
         abc_ga.run()
         best_action_seqs, best_iteration, best_id, costs = abc_ga.get_results()
         abc_ga.output_netlist()
@@ -164,9 +165,9 @@ def main():
             with open(params['output_file'], 'w') as dest:
                 dest.write(src.read())
         epoch_cost = cost_interface.get_cost(params['output_file'])
-        print(f"epoch cost: {epoch_cost}")
         final_min_cost = min(epoch_cost, final_min_cost)
-        end = time.time()
+        session_end = time.time()
+        print(f"epoch cost: {epoch_cost}, epoch time elapsed: {session_end-epoch_start}, total time elpased: {session_end-session_start}")
     print(f"FINAL_min_cost: {final_min_cost}")
 
 if __name__ == '__main__':

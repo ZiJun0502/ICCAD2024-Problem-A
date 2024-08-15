@@ -12,24 +12,24 @@ actions:
   - balance
   - dch -f
   - dc2
-  - choice
-  - choice2
-  - resyn
-  - resyn2
-  - resyn2a
-  - resyn3
-  - compress
-  - share
-  - rwsat
-  - drwsat2
-  - if -g
-  - if -p
+  # - choice
+  # - choice2
+  # - resyn
+  # - resyn2
+  # - resyn2a
+  # - resyn3
+  # - compress
+  # - share
+  # - rwsat
+  # - drwsat2
+  # - if -g
+  # - if -p
   # - fx
   # - dsd
-  - cleanup
-  - collapse
+  # - cleanup
+  # - collapse
 # the directory to hold the playground an agent uses to practice
-playground_dir: playground/design4-cost1
+playground_dir: playground
 
 # agent training parameters
 # rl_n_episodes: 5
@@ -37,8 +37,8 @@ playground_dir: playground/design4-cost1
 abc_ga_seq_len: 10
 abc_ga_n_init: 100
 abc_ga_n: 50
-abc_ga_n_iter: 5
+abc_ga_n_iter: 30
 
 ga_n_init: 100
 ga_n: 50
-ga_n_iter: 5
+ga_n_iter: 40

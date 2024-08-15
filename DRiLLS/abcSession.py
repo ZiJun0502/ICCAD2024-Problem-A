@@ -77,6 +77,7 @@ class abcSession:
         abc_command += f'write {dest};'
         # proc = check_output([self.params['abc_binary'], '-c', abc_command])
         proc = check_output([self.params['abc_binary'], '-c', abc_command])
+        # print(proc)
         self.library.replace_dummy(dest)
 
         cost = self.cost_interface.get_cost(dest)

@@ -2,8 +2,10 @@ import subprocess
 import csv
 import time
 
-designs = [f"design{i}.v" for i in range(1, 7)]
-cost_estimators = [f"cost_estimator_{i}" for i in range(1, 9)]
+# designs = [f"design{i}.v" for i in range(1, 7)]
+# cost_estimators = [f"cost_estimator_{i}" for i in range(1, 9)]
+designs = [f"design{i}.v" for i in [2]]
+cost_estimators = [f"cost_estimator_{i}" for i in [4, 5, 7, 8]]
 # designs = [f"design{i}.v" for i in range(1, 7)]
 # cost_estimators = [f"cost_estimator_{i}" for i in range(1, 9)]
 output_csv = "results.csv"
@@ -45,7 +47,7 @@ for design in designs:
 
             # Save the results
             print(f"\tmin cost: {min_cost:.6f}, time elapsed: {end_time - start_time:.2f}")
-            print("DateTime:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end)))
+            print("DateTime:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end_time)))
 
             results.append([design, cost_estimator, f"{min_cost:.6f}", f"{end_time - start_time:.2f}"])
 
