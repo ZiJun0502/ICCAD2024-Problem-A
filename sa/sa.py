@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from os.path import join, exists 
 from os import mkdir
 from utils.cost_interface import CostInterface
@@ -37,6 +38,7 @@ class SA:
         self.cell_map = cell_map
         self.design_path = design_path if design_path else join(self.config.params['playground_dir'], "design_preprocessed.v")
 
+        self.print_freq = 50
         self.best_solution = np.copy(self.current_solution)
         self.best_cost = init_cost
         self.best_iteration = -1
@@ -72,12 +74,16 @@ class SA:
         Runs the Simulated Annealing algorithm to find the minimum cost solution.
         """
         current_cost = self.get_sol_cost(self.current_solution, 0)
+        start, end = time.time(), time.time()
         for iteration in range(self.num_iterations):
             neighbor_solution = self._generate_neighbor()
-            print([f'{x:.4f}' for x in neighbor_solution])
             neighbor_cost = self.get_sol_cost(neighbor_solution, iteration)
-            print(f"Iteration {iteration}, cost: {neighbor_cost}, best cost: {self.best_cost} at {self.best_iteration}")
-            print(f"Temp: {self.temperature}")
+            if iteration % self.print_freq == 0:
+                end = time.time()
+                # print(f"Temp: {self.temperature}")
+                # print([f'{x:.4f}' for x in neighbor_solution])
+                print(f"Iteration {iteration}, cost: {neighbor_cost}, best cost: {self.best_cost} at {self.best_iteration}, time elapsed: {end-start:.2f}")
+                start = time.time()
             # Accept the neighbor solution with certain probability
             if np.random.rand() < self._acceptance_probability(current_cost, neighbor_cost):
                 self.current_solution = neighbor_solution

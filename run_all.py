@@ -5,8 +5,8 @@ import os
 
 # designs = [f"design{i}.v" for i in range(1, 7)]
 # cost_estimators = [f"cost_estimator_{i}" for i in range(1, 9)]
-designs = [f"design{i}.v" for i in [1]]
-cost_estimators = [f"cost_estimator_{i}" for i in [7, 8]]
+designs = [f"design{i}.v" for i in [4, 3, 2, 1]]
+cost_estimators = [f"cost_estimator_{i}" for i in [1, 4, 5, 7, 8]]
 # designs = [f"design{i}.v" for i in range(1, 7)]
 # cost_estimators = [f"cost_estimator_{i}" for i in range(1, 9)]
 output_csv = "results.csv"

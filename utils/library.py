@@ -19,7 +19,7 @@ class Library:
             self.min_cell_cost = {}
             self.min_cell_map = {}
             self.removed_cells = []
-            self.lib_information = {}
+            # self.lib_information = {}
             self.gate_types = []
             self.cost_interface = CostInterface()
 
@@ -39,9 +39,11 @@ class Library:
     def load_library(self, library_path):
         with open(library_path, 'r') as file:
             lib = load(file)
-        for key, val in lib['information'].items():
-            self.lib_information[key] = val
+        # for key, val in lib['information'].items():
+        #     self.lib_information[key] = val
         for i, cell in enumerate(lib['cells']):
+            cell = {k: cell[k] for k in ["cell_type", "cell_name"] if k in cell}
+
             if cell['cell_type'] in self.cell_map:
                 cell['id'] = len(self.cell_map[cell['cell_type']])
                 self.cell_map[cell['cell_type']].append(cell)

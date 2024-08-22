@@ -26,6 +26,7 @@ class GA:
         self.mutation_rate = mutation_rate
         self.n_iter = n_iter
         self.k_solution = k_solution
+        self.seen = {}
         self.config = Config()
         if not design_path:
             self.design_path = join(self.config.params['playground_dir'], "design_preprocessed.v")
@@ -40,6 +41,7 @@ class GA:
         self.cell_map = self.library.cell_map
         self.gate_types = self.library.gate_types
         self.population = self.init_population(init_population)
+        # seen chromosomes will be skipped when calculating cost
 
     def init_population(self, init_population):
         """
@@ -70,8 +72,11 @@ class GA:
     def random_chromosome(self):
         return [self.random_gene(lim) for lim in self.dim_limit]
 
-    def random_gene(self, n_cells):
-        x = random.randint(0, n_cells-1)
+    def random_gene(self, limit):
+        if isinstance(limit, int):
+            x = random.randint(0, limit-1)
+        else:
+            x = random.randint(limit[0], limit[1]-1)
         return format(x , f'0{self.bits}b')
     def encode_gene(self, x):
         return format(x , f'0{self.bits}b')
@@ -84,6 +89,8 @@ class GA:
             id = self.decode_gene(gene)
             chosen_cell_map[gate_type] = self.cell_map[gate_type][id]
         return chosen_cell_map
+    def get_chromosome_str(self, chromosome):
+        return ','.join(chromosome)
     def fitness(self, chromosome, population_id=0):
         """
         self.iteration dir is assumed to be set 
@@ -98,8 +105,45 @@ class GA:
         )
         # get cost
         cost = self.abcSession.run_ga_genlib(self.design_path, genlib_path)
-        return cost  # minimize cost
-    def get_fitnesses(self, population, method='wheel'):
+        return cost
+    def get_fitnesses(self, population, use_hash=True):
+        """
+        Get fitness values for whole population.
+        If the chromosome is seen before, swap it 
+        to the end of the population.
+        """
+        end_pos = len(population)-1
+        genlib_paths = ["" for _ in range(len(population))]
+        i = 0
+        while i <= end_pos:
+            while self.get_chromosome_str(population[i]) in self.seen and end_pos > i:
+                population[i], population[end_pos] = population[end_pos], population[i]
+                end_pos -= 1
+                # print(f"Skip chromosome: {i}")
+            genlib_path = join(self.iteration_dir, f"{i}.genlib")
+            chosen_cell_map = self.decode_chromosome(population[i])
+            self.library.write_library_genlib(
+                chosen_cell_map, 
+                genlib_path,
+            )
+            genlib_paths[i] = genlib_path
+            i += 1
+        costs = self.abcSession.run_ga_genlib_all(self.design_path, genlib_paths[:i])
+        if use_hash:
+            self.seen.update({self.get_chromosome_str(ch): cost for ch, cost in zip(population, costs)})
+        costs.extend(self.seen[self.get_chromosome_str(population[i])] for i in range(len(costs), len(population)))
+        return costs
+
+
+    # def get_fitnesses(self, population):
+    #     fitnesses = []
+    #     for i, chromo in enumerate(population): 
+    #         print(self.decode_chromosome(chromo))
+    #         start = time.time()
+    #         fitnesses.append(self.fitness(chromo, i))
+    #         end = time.time()
+    #         print(f"{i}-th chromo, takes: {end-start:.2f} sec")
+    #     return np.array(fitnesses)
         return np.array([self.fitness(chromo, i) for i, chromo in enumerate(population)])
     # def select_parents_rank(self, fitnesses):
     #     parents = [self.population[id] for cost, id in fitnesses[-2:]]
@@ -178,7 +222,8 @@ class GA:
     #         gene = self.encode_gene(len(self.cell_map[gate_type]) - 1)
     #     chromosome[gene_idx] = ''.join(gene)
     #     return chromosome
-
+    def _preprocess_population(self):
+        pass
     def evolve(self, iteration):
         new_population = []
         # create dir for current iteration
@@ -188,16 +233,21 @@ class GA:
 
         # calculate fitnesses for each population
         start = time.time()
+        self._preprocess_population()
         fitnesses = self.get_fitnesses(self.population)
         end = time.time()
         # log(f"Fitness calculation takes {end-start:.2f} seconds")
         # for i, c in enumerate(self.population):
-        #     for j, g in enumerate(self.population[i]):
-        #         print(self.gate_types[j], self.decode_gene(g), end=', ')
-            # print(self.decode_chromosome(c))
+            # for j, g in enumerate(self.population[i]):
+                # print(self.gate_types[j], self.decode_gene(g), end=', ')
+            # print()
+            # print(f"chromosome-{i}:",[val['cell_name'] for key, val in self.decode_chromosome(c).items()])
             # print(f" cost: {fitnesses[i]}")
         best_cost_id = np.argmin(fitnesses)
-        cost, chromosome = fitnesses[best_cost_id], self.population[best_cost_id]
+        # chromosome act like pointer here, takes 2 hours to find. fuck
+        cost, chromosome = fitnesses[best_cost_id], self.population[best_cost_id][:]
+        # print(f"Best cost: {cost}")
+        # print(f"Best chromosome: {self.decode_chromosome(chromosome)}")
         start = time.time()
         for _ in range(self.n // 2):
             parent1, parent2 = self.select_parents_rank(fitnesses, num_parents=self.n//2)
@@ -207,6 +257,7 @@ class GA:
         self.population = new_population
         end = time.time()
         # log(f"Crossover takes {end-start:.2f} seconds")
+        # print(f"Best chromosome: {self.decode_chromosome(chromosome)}")
         return cost, chromosome, best_cost_id
 
 
@@ -217,9 +268,12 @@ class GA:
         seen = {}
         best_cost, best_cost_iteration = float('inf'), -1
         # best_cost_id, best_cost_iteration = -1, -1
+        evolve_time = 0
         for iteration in range(self.n_iter):
             start = time.time()
             cost, chromosome, best_cost_id = self.evolve(iteration)
+            end = time.time()
+            evolve_time += end-start
             if cost < best_cost:
                 best_cost = cost
                 best_cost_iteration = iteration
@@ -234,6 +288,8 @@ class GA:
             end = time.time()
             log(f"Iteration {iteration}, cost: {cost}, best cost: {best_cost} at {best_cost_iteration}", end='')
             log(f", takes {end-start:.2f} seconds")
+        log(f"Evolve total takes: {evolve_time:.2f}")
+        
         # log(f"Best cost: {best_cost}, at iteration: {best_iteration}")
     def get_results(self):
         min_cell_maps = []
@@ -246,5 +302,5 @@ class GA:
                 g: self.cell_map[g][cell_id] for i, (g, cell_id) in enumerate(zip(self.gate_types, best_cell_id))
             }
             min_cell_maps.append(min_cell_map)
-        print(f"top {self.k_solution} cost: {[i for i in costs]}")
+        print(f"top {self.k_solution} cost: {[-i for i in costs]}")
         return min_cell_maps, costs

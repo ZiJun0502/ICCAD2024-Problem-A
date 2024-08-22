@@ -62,20 +62,23 @@ class PostOptimizor:
             # print()
         # print(f"original cost: {self.cost_interface.get_cost(design_path)}")
         # print(f"after gate-sizing cost: {min_cost}")
-    def post_area_search(self):
-        """
-        For each .genlib solutions, adjust area value for each cell [1-5]
-        """
-        for i in range(5):
-            genlib_path = f"./lib/library_{i}.genlib"
+    # def post_area_search(self):
+    #     """
+    #     For each .genlib solutions, adjust area value for each cell [1-5]
+    #     """
+    #     for i in range(5):
+    #         genlib_path = f"./lib/library_{i}.genlib"
     def post_map(self, design_path):
         min_cost = float('inf')
         min_iter = -1
         min_design_path = ""
+        unmapped_design_path = design_path.replace('.v', '_unmapped.v')
+        library_path = join(self.library.genlib_dir_path, "library.genlib")
+        self.abcSession.unmap(design_path, unmapped_design_path, library_path)
         for i in range(6):
-            genlib_path = f"./lib/library_{i}.genlib"
+            genlib_path = join(self.library.genlib_dir_path, f"library_{i}.genlib")
             design_dest = design_path.replace(".v", f"_{i}.v")
-            cost = self.abcSession.run_ga_genlib(design_path, genlib_path, design_dest)
+            cost = self.abcSession.run_ga_genlib(unmapped_design_path, genlib_path, design_dest)
             print(f"design: {design_dest}, cost {cost}")
             if cost < min_cost:
                 min_cost = cost
@@ -180,9 +183,10 @@ class PostOptimizor:
                     modified_netlist[line_index] = re.sub(rf'\.B\({net}\)', f'.B({leaf_nets[i]})', modified_netlist[line_index])
                 modified_netlist += buffer_declarations
         # # Write the modified netlist back
-        if dest_path:
-            with open(dest_path, 'w') as file:
-                file.writelines(modified_netlist + endmodule_str)
-        else:
-            with open(netlist_path, 'w') as file:
-                file.writelines(modified_netlist + endmodule_str)
+        # print(dest_path)
+        # if dest_path:
+        #     with open(dest_path, 'w') as file:
+        #         file.writelines(modified_netlist + endmodule_str)
+        # else:
+        #     with open(netlist_path, 'w') as file:
+        #         file.writelines(modified_netlist + endmodule_str)
