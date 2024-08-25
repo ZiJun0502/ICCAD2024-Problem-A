@@ -7,6 +7,7 @@ from DRiLLS.abcSession import abcSession
 from utils.cost_interface import CostInterface
 from utils.library import Library
 from utils.config import Config
+buf_gate_count = 0
 class PostOptimizor:
     _instance = None
     _initialized = False
@@ -89,6 +90,7 @@ class PostOptimizor:
 
     def insert_buffers_(self, net, fanout, max_fanout, buf_cell_name):
         global buf_gate_count
+        # print(net, buf_gate_count)
         buf_pattern = f"{net}_buf_{{}}"
         child_net = buf_pattern.format(0)
         # queue storing leaf nets
@@ -184,9 +186,9 @@ class PostOptimizor:
                 modified_netlist += buffer_declarations
         # # Write the modified netlist back
         # print(dest_path)
-        # if dest_path:
-        #     with open(dest_path, 'w') as file:
-        #         file.writelines(modified_netlist + endmodule_str)
+        if dest_path:
+            with open(dest_path, 'w') as file:
+                file.writelines(modified_netlist + endmodule_str)
         # else:
         #     with open(netlist_path, 'w') as file:
         #         file.writelines(modified_netlist + endmodule_str)

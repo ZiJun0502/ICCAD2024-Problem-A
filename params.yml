@@ -16,7 +16,8 @@ actions:
   - resyn3
   - compress
   - share
-  - 'st; multi -F 150 -m; sop -C 5000000; fx; resyn2'
+  # - 'satclp; fx; st'
+  # - 'st; multi -F 150 -m; sop -C 5000000; fx; resyn2'
   - rwsat
   - drwsat2
   - 'if -g; st;'
@@ -47,4 +48,4 @@ abc_ga_n_iter: 30
 
 ga_n_init: 100
 ga_n: 50
-ga_n_iter: 30
+ga_n_iter: 10

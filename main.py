@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 # Add the parent directory to sys.path
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
@@ -39,7 +40,6 @@ def main():
     params['playground_dir'] = os.path.join(params['playground_dir'], f"{os.path.basename(params['design_file'][:-2])}-{os.path.basename(params['cost_estimator'])}")
     if not os.path.exists(params['playground_dir']):
         os.mkdir(params['playground_dir'])
-    # print(params)
     # init modules
     config = Config(
         params=params
@@ -63,6 +63,7 @@ def main():
             n=params['ga_n'],
             n_init=params['ga_n_init'],
             n_iter=params['ga_n_iter'],
+            # n_iter=random.randint(10, 31),
             init_population=[[x['id'] for x in library.min_cell_map.values()]],
             dim_limit=[len(library.cell_map[gate_type]) for gate_type in library.gate_types],
             k_solution=5
@@ -104,7 +105,7 @@ def main():
             init_cost=min_cost, 
             cell_map=best_cells_map,
             temp_h=4000000000, temp_l=0.1, 
-            cooling_rate=0.5, num_iterations=500,
+            cooling_rate=0.5, num_iterations=250,
         )
         min_cell_map, min_cost_sa = sa.run()
         print(f"SA minimum cost: {min_cost_sa}, GA minimum cost: {min_cost_ga_genlib}")
@@ -132,6 +133,7 @@ def main():
             output_file=params['output_file'],
             library_path=os.path.join(library.genlib_dir_path, "library.genlib"),
             actions=params['actions'],
+            seq_len=params['abc_ga_seq_len'],
             n_choice=len_choice_commands,
             choice_commands=choice_commands,
             mutation_rate=0.5,

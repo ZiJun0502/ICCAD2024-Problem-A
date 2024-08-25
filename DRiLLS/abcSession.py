@@ -97,7 +97,18 @@ class abcSession:
         abc_command += f'write {dest};\n'
         proc = check_output([self.params['abc_binary'], '-c', abc_command])
         # print(proc.decode())
+    def forward_command(self, command, src, dest, library_path="", mapping=False):
+        abc_command = ""
+        abc_command += f'read {src};\n'
+        abc_command += f'{command};\n'
+        if mapping:
+            abc_command  += f'read_library {library_path};\n'
+            abc_command  += f'map -a;'
+        abc_command += f'write {dest};\n'
 
+        proc = check_output([self.params['abc_binary'], '-c', abc_command])
+        # print(proc.decode())
+        return proc
     def run_ga_abc_all(self, design_path, library_path, command_lists, dests=""):
         dests_unmapped = [dest.replace('.v', '_unmapped.v') for dest in dests]
         # save network aig

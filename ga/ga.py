@@ -142,9 +142,9 @@ class GA:
     #         start = time.time()
     #         fitnesses.append(self.fitness(chromo, i))
     #         end = time.time()
-    #         print(f"{i}-th chromo, takes: {end-start:.2f} sec")
+    #         print(f"{i}-th chromo, cost: {fitnesses[-1]}, takes: {end-start:.2f} sec")
     #     return np.array(fitnesses)
-        return np.array([self.fitness(chromo, i) for i, chromo in enumerate(population)])
+        # return np.array([self.fitness(chromo, i) for i, chromo in enumerate(population)])
     # def select_parents_rank(self, fitnesses):
     #     parents = [self.population[id] for cost, id in fitnesses[-2:]]
     #     return parents
