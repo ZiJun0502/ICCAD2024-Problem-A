@@ -23,7 +23,13 @@ class PostOptimizor:
             self.cost_interface = CostInterface()
             self.abcSession = abcSession()
             self.k_genlib = k_genlib
+
+            self.buffer_temp_dir = join(self.config.params['playground_dir'], "buffer")
+            if not exists(self.buffer_temp_dir):
+                mkdir(self.buffer_temp_dir)
+
             self._initialized = True
+
     def run_gate_sizing(self, design_path, genlib_path="", cell_map={}):
         playground_dir = join(self.config.params['playground_dir'], "gateSizing")
         if not exists(playground_dir):
@@ -50,8 +56,7 @@ class PostOptimizor:
                     else:
                         modified_netlist.append(line)
 
-                temp_netlist_path = \
-                    join(playground_dir, design_name.replace(".v", f"_{cell_name}.v"))
+                temp_netlist_path = join(playground_dir, design_name.replace(".v", f"_{cell_name}.v"))
                 with open(temp_netlist_path, 'w') as temp_file:
                     temp_file.writelines(modified_netlist)
                 cost = self.cost_interface.get_cost(temp_netlist_path)
@@ -143,6 +148,31 @@ class PostOptimizor:
                 net_driving_line[A].append(i)
                 net_driving_line[B].append(i)
         return net_fanout
+    def run_insert_buffers(self, design_path, buf_cells):
+        min_cost = float('inf')
+        min_cost_cell = ""
+        min_cost_fanout = -1
+        for buf_cell in buf_cells:
+            buf_cell_name = buf_cell['cell_name']
+            min_fanout_cost = float('inf')
+            min_cost_fanout = -1
+            for i, max_fanout in enumerate(range(2, 40, 2)):
+                file_name = basename(design_path).replace('.v', f"_{buf_cell_name}_fan_{max_fanout}.v")
+                dest = join(self.buffer_temp_dir, file_name)
+                self.insert_buffers(design_path, dest_path=dest, max_fanout=max_fanout, buf_cell_name=buf_cell_name)
+                cost = self.cost_interface.get_cost(dest)
+                # print(f"max fanout: {max_fanout}, cost: {cost}")
+                if cost < min_cost:
+                    min_cost = cost
+                    min_cost_cell = buf_cell_name
+                    min_cost_fanout = max_fanout
+                    best_buffer_netlist = dest
+                if cost < min_fanout_cost:
+                    min_fanout_cost = cost
+                    min_cost_fanout = max_fanout
+            print(f"Buffer: {buf_cell_name} min cost: {min_fanout_cost:.6f} with max fanout: {min_cost_fanout}")
+        # print(f"Buffer min cost: {min_cost}, with buf cell: {min_cost_cell}, with fanout: {min_cost_fanout}")
+        return best_buffer_netlist, min_cost
     def insert_buffers(self, netlist_path, dest_path='', max_fanout=5, buf_cell_name=''):
         with open(netlist_path, 'r') as file:
             lines = file.readlines()

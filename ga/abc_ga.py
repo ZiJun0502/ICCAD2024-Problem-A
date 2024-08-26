@@ -3,7 +3,7 @@ from ga.ga import GA
 from DRiLLS.abcSession import abcSession
 
 class AbcGA(GA):
-    def __init__(self, design_path, library_path, output_file, 
+    def __init__(self, design_path, library_path, 
                  actions, seq_len,
                  choice_commands, n_choice, **kwargs):
         self.abcSession = abcSession()
@@ -11,7 +11,6 @@ class AbcGA(GA):
         self.design_path = design_path
         self.library_path = library_path
         self.actions = actions
-        self.output_file = output_file
 
         design_path = self._filter_commands()
         kwargs['design_path'] = design_path
@@ -119,11 +118,10 @@ class AbcGA(GA):
                                                 dests)
             # self.seen ==> {chromosome: string: (cost: float, path_to_netlist: str)}
             if use_hash:
-                for i in range(len(dests)):
-                    self.seen[self.get_chromosome_str(population[i])] = costs[i], dests[i]
-                # self.seen.update({self.get_chromosome_str(ch): (cost, dest) for ch, cost, dest in zip(population, costs, dests)})
-        if len(costs) < len(population):
-            costs.extend(self.seen[self.get_chromosome_str(population[i])][0] for i in range(len(costs), len(population)))
+                # for i in range(len(dests)):
+                #     self.seen[self.get_chromosome_str(population[i])] = costs[i], dests[i]
+                self.seen.update({self.get_chromosome_str(ch): (cost, dest) for ch, cost, dest in zip(population, costs, dests)})
+        costs.extend(self.seen[self.get_chromosome_str(population[i])][0] for i in range(len(costs), len(population)))
         # [print(i) for i in [self.decode_chromosome(ch) for ch in population]]
         return costs
     def fitness(self, chromosome, population_id=0):
@@ -149,15 +147,15 @@ class AbcGA(GA):
                 self.best_path = self.seen[self.get_chromosome_str(chromosome)][1]
         print(f"top {self.k_solution} cost: {[i for i in costs]}")
         return min_action_seqs, self.best_iteration, self.best_id, self.best_path, costs
-    def output_netlist(self):
+    def output_netlist(self, output_path):
         # best_netlist_path = join(self.playground_dir, 
         #             f"{self.best_iteration}_{self.dir_suffix}",
         #             f"netlist_{self.best_id}.v")
         with open(self.best_path, 'r') as src:
-            with open(self.output_file, 'w') as dest:
+            with open(output_path, 'w') as dest:
                 dest.write(src.read())
         # best_unmapped_netlist_path = best_netlist_path.replace('.v', '_unmapped.v')
-        # unmapped_output_file = self.output_file.replace('.v', '_unmapped.v')
+        # unmapped_output_file = self.output_path.replace('.v', '_unmapped.v')
         # with open(best_unmapped_netlist_path, 'r') as src:
         #     with open(unmapped_output_file, 'w') as dest:
         #         dest.write(src.read())

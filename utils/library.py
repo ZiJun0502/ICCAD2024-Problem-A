@@ -243,6 +243,10 @@ class Library:
         fb_delay, ff_delay = 1, 0 
         with open(dest, 'w') as f:
             for gate_type in self.gate_types:
+                if gate_type in self.removed_cells:
+                    if gate_type == 'not':
+                        f.write('GATE not_dummy    1  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
+                        continue
                 for cell in cell_map.get(gate_type):
                     function = cell_function.get(gate_type)
                     phase = cell_phase.get(gate_type, "UNKNOWN")
@@ -255,4 +259,4 @@ class Library:
 
             f.write('GATE ZERO      1  Y=CONST0;\n')
             f.write('GATE ONE       1  Y=CONST1;\n')
-            f.write('GATE not_dummy    1  Y=!A;                   PIN * INV 1 999 1 0 1 0')
+            # f.write('GATE not_dummy    1  Y=!A;                   PIN * INV 1 999 1 0 1 0')

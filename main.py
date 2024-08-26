@@ -6,6 +6,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import datetime
 import numpy as np
 import time
+import copy
 import yaml
 from parseArgs import *
 # from DRiLLS.model import A2C
@@ -34,7 +35,7 @@ def main():
     params['library_file'] = args.library
     params['design_file'] = args.netlist
     params['cost_estimator'] = args.cost_function
-    params['output_file'] = args.output
+    params['output_path'] = args.output
     if not os.path.exists(params['playground_dir']):
         os.mkdir(params['playground_dir'])
     params['playground_dir'] = os.path.join(params['playground_dir'], f"{os.path.basename(params['design_file'][:-2])}-{os.path.basename(params['cost_estimator'])}")
@@ -54,25 +55,43 @@ def main():
     abc_session = abcSession()
     session_start = time.time()
     session_end = session_start
-    final_min_cost = float('inf')
-    while session_end - session_start <= 300:
+    session_min_cost = float('inf')
+    epoch = 0
+    first = True
+    while session_end - session_start <= 600:
         epoch_start = time.time()
-        min_cost = float('inf')
-        # phase 1 GA
+        epoch_cost = float('inf')
+        print([(x['cell_name'], x['cost']) for x in library.min_cell_map.values()])
+        """
+        Phase 1: GA-genlib
+        """
+        print([x['cell_name'] for x in library.min_cell_map.values()])
+        if first:
+            n_iter = params['ga_n_iter']
+        else:
+            n_iter = random.randint(10, params['ga_n_iter'])
+            # n_iter = 10
         ga = GA(
             n=params['ga_n'],
             n_init=params['ga_n_init'],
-            n_iter=params['ga_n_iter'],
-            # n_iter=random.randint(10, 31),
+            n_iter=n_iter,
+            output_path=params['output_path'],
             init_population=[[x['id'] for x in library.min_cell_map.values()]],
+            session_min_cost=session_min_cost,
             dim_limit=[len(library.cell_map[gate_type]) for gate_type in library.gate_types],
             k_solution=5
         )
-        ga_start = time.time()
+        start = time.time()
         ga.run()
-        ga_end = time.time()
-        print(f"GA GENLIB takes {ga_end - ga_start:.2f} s")
-        best_cell_maps, costs = ga.get_results()
+        best_cell_maps, ga_costs = ga.get_results()
+        end = time.time()
+        print(f"GA-genlib takes {end - start:.2f} s")
+        print(f"GA-genlib cost: {ga_costs[-1]}")
+        ga_genlib_min_cost = ga_costs[-1]
+        epoch_cost = ga_genlib_min_cost
+        if epoch_cost < session_min_cost:
+            session_min_cost = epoch_cost
+            print(f"New session min cost: {session_min_cost}")
         min_cell_map = None
         # write best genlibs
         best_cells_map = {gate_type: [] for gate_type in library.gate_types}
@@ -89,48 +108,54 @@ def main():
                     best_cell_map, 
                     os.path.join(library.genlib_dir_path, "library.genlib"),
                 )
-                min_cost_ga_genlib = -costs[i]
                 min_cell_map = best_cell_map
         library.write_library_genlib_all(
             dest=os.path.join(library.genlib_dir_path, "library_multi.genlib"),
             cell_map=best_cells_map
         )
-        # sa
+        """
+        Phase 2: SA
+        """
         sa_init_solution = []
         for i, (gate_type, cells) in enumerate(best_cells_map.items()):
             for j, cell in enumerate(cells):
                 sa_init_solution.append(cell['cost'])
         sa = SA(
             init_solution=sa_init_solution, 
-            init_cost=min_cost, 
-            cell_map=best_cells_map,
+            init_cost=epoch_cost, 
+            cell_map=copy.deepcopy(best_cells_map),
             temp_h=4000000000, temp_l=0.1, 
-            cooling_rate=0.5, num_iterations=250,
+            cooling_rate=0.5, num_iterations=500,
         )
-        min_cell_map, min_cost_sa = sa.run()
-        print(f"SA minimum cost: {min_cost_sa}, GA minimum cost: {min_cost_ga_genlib}")
-        if min_cost_sa < min_cost_ga_genlib:
+        min_cell_map, sa_min_cost = sa.run()
+        print(f"SA minimum cost: {sa_min_cost}, GA minimum cost: {ga_genlib_min_cost}")
+        if sa_min_cost < ga_genlib_min_cost:
             library.write_library_genlib_all(
                 cell_map=min_cell_map, 
                 dest=os.path.join(library.genlib_dir_path, "library.genlib")
             )
+            epoch_cost = sa_min_cost
         library.write_library_genlib_all(
             cell_map=min_cell_map, 
             dest=os.path.join(library.genlib_dir_path, "library_5.genlib")
         )
-        # # phase 2 abc_ga
+        """
+        Phase 3: Abc_GA
+        """
         # print(params['actions'])
         choice_commands = {'choice', 'choice2', 'dch', 'dch -f', 'dch -p', 'dch -fp', 'dc2 -p', 'dc2'}
         len_choices = sum(i in choice_commands for i in params['actions'])
+        # for i, action in enumerate(params['actions']):
+        #     if action in choice_commands:
+        #         params['actions'][i] = f"{action};st;"
         len_choice_commands = 4
         len_commands = len(params['actions'])
-        dim_limit = [(0, len_commands-len_choices) for _ in range(params['abc_ga_seq_len'])]
+        # dim_limit = [(0, len_commands-len_choices) for _ in range(params['abc_ga_seq_len'])]
         dim_limit = [(0, len_commands-len_choices) for _ in range(params['abc_ga_seq_len']-len_choice_commands)] + \
                     [(len_commands-len_choices-2, len_commands) for _ in range(len_choice_commands)]
-        print(dim_limit)
         abc_ga = AbcGA(
             design_path=abc_session.preprocessed_design_path,
-            output_file=params['output_file'],
+            output_path=params['output_path'],
             library_path=os.path.join(library.genlib_dir_path, "library.genlib"),
             actions=params['actions'],
             seq_len=params['abc_ga_seq_len'],
@@ -141,66 +166,78 @@ def main():
             n_init=params['abc_ga_n_init'],
             n_iter=params['abc_ga_n_iter'],
             dim_limit=dim_limit,
+            session_min_cost=session_min_cost,
         )
         abc_ga.run()
-        best_action_seqs, best_iteration, best_id, best_path, costs = abc_ga.get_results()
-        abc_ga.output_netlist()
+        best_action_seqs, best_iteration, best_id, best_path, abc_ga_costs = abc_ga.get_results()
+        # abc_ga_best_netlist = os.join(params['playground_dir'], "abc_ga_best_netlist.v")
+        # abc_ga.output_netlist(abc_ga_best_netlist)
         # write best netlists
-        min_cost = min(costs)
-        print(f"abcGA min cost: {min_cost}")
+        abc_ga_min_cost = min(abc_ga_costs)
+        print(f"Abc-GA cost: {abc_ga_min_cost}")
+        epoch_cost = min(epoch_cost, abc_ga_min_cost)
+        if epoch_cost < session_min_cost:
+            session_min_cost = epoch_cost
+            print(f"New session min cost: {session_min_cost}")
+        assert cost_interface.get_cost(abc_ga.best_path) == abc_ga_min_cost
+        # print(f"abcGA min cost: {epoch_cost}")
 
         opt = PostOptimizor()
         # phase 3 post map
-        # best_netlist, cost = opt.post_map(params['output_file'])
-        # if cost < min_cost:
+        # best_netlist, cost = opt.post_map(params['output_path'])
+        # if cost < epoch_cost:
         #     with open(best_netlist, 'r') as src:
-        #         with open(params['output_file'], 'w') as dest:
+        #         with open(params['output_path'], 'w') as dest:
         #             dest.write(src.read())
-        # phase 4 add buffer
-        buffer_temp_dir = os.path.join(params['playground_dir'], "buffer")
-        if not os.path.exists(buffer_temp_dir):
-            os.mkdir(buffer_temp_dir)
-        min_idx = -1
+        """
+        Phase 4: Buffer Insertion
+        """
         best_buffer_netlist = ""
         # find best buffer to insert
         start = time.time()
-        for buf_cell in library.cell_map['buf']:
-            buf_cell_name = buf_cell['cell_name']
-            min_fanout_cost = float('inf')
-            min_cost_fanout = -1
-            for i, max_fanout in enumerate(range(2, 40, 2)):
-                file_name = os.path.basename(params['output_file']).replace('.v', f"_{buf_cell_name}_fan_{max_fanout}.v")
-                dest = os.path.join(buffer_temp_dir, file_name)
-                opt.insert_buffers(params['output_file'], dest_path=dest, max_fanout=max_fanout, buf_cell_name=buf_cell_name)
-                cost = cost_interface.get_cost(dest)
-                # print(f"max fanout: {max_fanout}, cost: {cost}")
-                if cost < min_cost:
-                    min_cost = cost
-                    min_idx = i
-                    best_buffer_netlist = dest
-                    print(f"buf update cost: {cost}")
-                if cost < min_fanout_cost:
-                    min_fanout_cost = cost
-                    min_cost_fanout = max_fanout
-            print(f"Buffer: {buf_cell_name} min cost: {min_fanout_cost:.6f} with max fanout: {min_cost_fanout}")
-        if best_buffer_netlist:
-            print("buf: ", best_buffer_netlist)
-            with open(best_buffer_netlist, 'r') as src:
-                with open(params['output_file'], 'w') as dest:
-                    dest.write(src.read())
+        best_buffer_netlist, buf_min_cost = opt.run_insert_buffers(
+            design_path=abc_ga.best_path,
+            buf_cells=library.cell_map['buf']
+        )
         end = time.time()
-        # phase 5 gate sizing
-        best_netlist, cost = opt.run_gate_sizing(params['output_file'])
-        print(f"gate sizing: {best_netlist}, {cost}")
-        if cost < min_cost:
-            with open(best_netlist, 'r') as src:
-                with open(params['output_file'], 'w') as dest:
+        print(f"Buffer Insertion cost: {buf_min_cost}")
+        if buf_min_cost < epoch_cost:
+            epoch_cost = buf_min_cost
+        if epoch_cost < session_min_cost:
+            session_min_cost = epoch_cost
+            print(f"New session min cost: {session_min_cost}")
+            with open(best_buffer_netlist, 'r') as src:
+                with open(params['output_path'], 'w') as dest:
                     dest.write(src.read())
-        epoch_cost = cost_interface.get_cost(params['output_file'])
-        final_min_cost = min(epoch_cost, final_min_cost)
+        assert cost_interface.get_cost(best_buffer_netlist) == buf_min_cost
+        """
+        Phase 5: Gate Sizing
+        """
+        start = time.time()
+        best_gate_sizing_netlist, gs_min_cost = opt.run_gate_sizing(best_buffer_netlist)
+        end = time.time()
+        print(f"Gate Sizing cost: {gs_min_cost}")
+        epoch_cost = min(epoch_cost, gs_min_cost)
+        if epoch_cost < session_min_cost:
+            session_min_cost = epoch_cost
+            print(f"New session min cost: {session_min_cost}")
+            with open(best_gate_sizing_netlist, 'r') as src:
+                with open(params['output_path'], 'w') as dest:
+                    dest.write(src.read())
+        assert cost_interface.get_cost(best_gate_sizing_netlist) == gs_min_cost
+        """
+        Check cost
+        """
+        epoch_min_cost = cost_interface.get_cost(params['output_path'])
+        print(f"session minimum: {session_min_cost}, current minimum: {epoch_min_cost}")
+        assert session_min_cost == epoch_min_cost
+        # session_min_cost = min(epoch_min_cost, session_min_cost)
         session_end = time.time()
-        print(f"epoch cost: {epoch_cost}, epoch time elapsed: {session_end-epoch_start:.2f}, total time elpased: {session_end-session_start:.2f}")
-    print(f"FINAL_min_cost: {final_min_cost}")
+        print(f"epoch {epoch} cost: {epoch_cost}, epoch time elapsed: {session_end-epoch_start:.2f}, total time elpased: {session_end-session_start:.2f}")
+        print()
+        first = False
+        epoch += 1
+    print(f"FINAL_min_cost: {session_min_cost}")
 
 if __name__ == '__main__':
     # read args and yaml

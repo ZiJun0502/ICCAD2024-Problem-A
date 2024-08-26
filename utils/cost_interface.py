@@ -10,7 +10,7 @@ class CostInterface:
             cls._instance = super(CostInterface, cls).__new__(cls)
         return cls._instance
     def __init__(self, cost_estimator_path="", library_path=""):
-        if not self._initialized:
+        if not self._initialized or (cost_estimator_path != "" and library_path != ""):
             self.cost_estimator_path = cost_estimator_path
             self.library_path = library_path
             self._initialized = True

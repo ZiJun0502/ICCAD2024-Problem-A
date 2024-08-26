@@ -47,28 +47,27 @@ class abcSession:
         with open(self.preprocessed_design_path, 'w') as file:
             file.write(processed_netlist)
 
-    def run_ga_genlib_all(self, design_path, library_paths):
-        abc_mapped_output_netlists = [library_path.replace('.genlib', '.v') for library_path in library_paths]
+    def run_ga_genlib_all(self, design_path, library_paths, dests):
         # save first mapped network
         abc_command = f'read {design_path};'
         abc_command += 'strash;'
         abc_command += 'fraig_store;'
         abc_command += f'read_library {library_paths[0]};'
         abc_command += 'map -a;'
-        abc_command += f'write {abc_mapped_output_netlists[0]};'
+        abc_command += f'write {dests[0]};'
         for i in range(1, len(library_paths)):
             abc_command += 'fraig_restore;'
             abc_command += 'fraig_store;'
             abc_command += f'read_library {library_paths[i]};'
             abc_command += 'map -a;'
-            abc_command += f'write {abc_mapped_output_netlists[i]};'
+            abc_command += f'write {dests[i]};'
 
         proc = check_output([self.params['abc_binary'], '-c', abc_command])
-
+        # print(proc.decode())
         for i in range(len(library_paths)):
-            self.library.replace_dummy(abc_mapped_output_netlists[i])
+            self.library.replace_dummy(dests[i])
 
-        costs = [self.cost_interface.get_cost(netlist) for netlist in abc_mapped_output_netlists]
+        costs = [self.cost_interface.get_cost(netlist) for netlist in dests]
         return costs
 
     def run_ga_genlib(self, design_path, library_path, dest="ga_netlist.v"):
@@ -107,6 +106,10 @@ class abcSession:
         abc_command += f'write {dest};\n'
 
         proc = check_output([self.params['abc_binary'], '-c', abc_command])
+        try:
+            self.library.replace_dummy(dest)
+        except:
+            pass
         # print(proc.decode())
         return proc
     def run_ga_abc_all(self, design_path, library_path, command_lists, dests=""):

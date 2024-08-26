@@ -14,7 +14,7 @@ def log(message: str, end='\n'):
 class GA:
     def __init__(self, n=50, n_init=100, dim=8, dim_limit=[], bits=5, 
                  crossover_rate=0.9, mutation_rate=0.4, n_iter=20, k_solution=5,
-                 design_path="", init_population=[],
+                 design_path="", output_path="", session_min_cost=float('inf'), init_population=[],
                  dir_suffix="ga_genlib"):
         self.dir_suffix = dir_suffix
         self.n = n
@@ -32,6 +32,8 @@ class GA:
             self.design_path = join(self.config.params['playground_dir'], "design_preprocessed.v")
         else:
             self.design_path = design_path
+        self.output_path = output_path
+        self.session_min_cost = session_min_cost
         self.playground_dir = join(self.config.params['playground_dir'], dir_suffix)
         if not exists(self.playground_dir):
             mkdir(self.playground_dir)
@@ -66,6 +68,9 @@ class GA:
         final_population = [x[1] for x in zipped_population]
         end = time.time()
         log(f"Initialization takes: {end-start:.2f} seconds")
+        # if self.dir_suffix == 'ga_genlib':
+        #     print(self.design_path)
+            # log(f"Top five cost: {[(x[0],[x['cell_name'] for x in self.decode_chromosome(x[1]).values()]) for x in zipped_population[:5]]}")
         log(f"Top five cost: {[x[0] for x in zipped_population[:5]]}")
         return final_population
 
@@ -109,11 +114,11 @@ class GA:
     def get_fitnesses(self, population, use_hash=True):
         """
         Get fitness values for whole population.
-        If the chromosome is seen before, swap it 
-        to the end of the population.
+        If the chromosome is seen before, swap it to 
+        the end of the population.
         """
         end_pos = len(population)-1
-        genlib_paths = ["" for _ in range(len(population))]
+        genlib_paths = []
         i = 0
         while i <= end_pos:
             while self.get_chromosome_str(population[i]) in self.seen and end_pos > i:
@@ -122,16 +127,22 @@ class GA:
                 # print(f"Skip chromosome: {i}")
             genlib_path = join(self.iteration_dir, f"{i}.genlib")
             chosen_cell_map = self.decode_chromosome(population[i])
+            # if 'init' in self.iteration_dir:
+            #     print(f"writing init genlib: {i}.genlib")
             self.library.write_library_genlib(
                 chosen_cell_map, 
                 genlib_path,
             )
-            genlib_paths[i] = genlib_path
+            genlib_paths.append(genlib_path)
             i += 1
-        costs = self.abcSession.run_ga_genlib_all(self.design_path, genlib_paths[:i])
-        if use_hash:
-            self.seen.update({self.get_chromosome_str(ch): cost for ch, cost in zip(population, costs)})
-        costs.extend(self.seen[self.get_chromosome_str(population[i])] for i in range(len(costs), len(population)))
+        costs = []
+        if end_pos != 0:
+            dests = [genlib_path.replace('.genlib', '.v') for genlib_path in genlib_paths]
+            # print(dests)
+            costs = self.abcSession.run_ga_genlib_all(self.design_path, genlib_paths, dests)
+            if use_hash:
+                self.seen.update({self.get_chromosome_str(ch): (cost, dest) for ch, cost, dest in zip(population, costs, dests)})
+        costs.extend(self.seen[self.get_chromosome_str(population[i])][0] for i in range(len(costs), len(population)))
         return costs
 
 
@@ -258,12 +269,13 @@ class GA:
         end = time.time()
         # log(f"Crossover takes {end-start:.2f} seconds")
         # print(f"Best chromosome: {self.decode_chromosome(chromosome)}")
+        # print(f"Best chromosome: {chromosome}")
         return cost, chromosome, best_cost_id
 
 
     def run(self):
         ori_mutation_rate = self.mutation_rate
-        tar_mutation_rate = 0.01
+        tar_mutation_rate = 0.1
         self.pq = PriorityQueue()
         seen = {}
         best_cost, best_cost_iteration = float('inf'), -1
@@ -274,9 +286,13 @@ class GA:
             cost, chromosome, best_cost_id = self.evolve(iteration)
             end = time.time()
             evolve_time += end-start
+            # if best, save netlist to output path
             if cost < best_cost:
                 best_cost = cost
                 best_cost_iteration = iteration
+            if cost < self.session_min_cost:
+                self.session_min_cost = cost
+                self.save_netlist(iteration, best_cost_id, chromosome)
             if ''.join(chromosome) not in seen:
                 self.pq.put((-cost, chromosome, best_cost_id, iteration))
                 seen[''.join(chromosome)] = True
@@ -289,18 +305,26 @@ class GA:
             log(f"Iteration {iteration}, cost: {cost}, best cost: {best_cost} at {best_cost_iteration}", end='')
             log(f", takes {end-start:.2f} seconds")
         log(f"Evolve total takes: {evolve_time:.2f}")
-        
         # log(f"Best cost: {best_cost}, at iteration: {best_iteration}")
+    def save_netlist(self, iteration, id, chromosome):
+        # src = join(self.iteration_dir, f"{id}.v")
+        src = self.seen[self.get_chromosome_str(chromosome)][1]
+        with open(src, 'r') as best_netlist:
+            with open(self.output_path, 'w') as output_path:
+                output_path.write(best_netlist.read())
+        print(f"{src} is written to {self.output_path}")
+
+
     def get_results(self):
         min_cell_maps = []
         costs = []
         while not self.pq.empty():
             cost, chromosome, best_cost_id, iteration = self.pq.get()
-            costs.append(cost)
+            costs.append(-cost)
             best_cell_id = [self.decode_gene(g) for g in chromosome]
             min_cell_map = {
                 g: self.cell_map[g][cell_id] for i, (g, cell_id) in enumerate(zip(self.gate_types, best_cell_id))
             }
             min_cell_maps.append(min_cell_map)
-        print(f"top {self.k_solution} cost: {[-i for i in costs]}")
+        print(f"top {self.k_solution} cost: {[i for i in costs]}")
         return min_cell_maps, costs
