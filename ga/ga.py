@@ -43,6 +43,7 @@ class GA:
         self.cell_map = self.library.cell_map
         self.gate_types = self.library.gate_types
         self.population = self.init_population(init_population)
+        print(self.dim_limit)
         # seen chromosomes will be skipped when calculating cost
 
     def init_population(self, init_population):
@@ -103,13 +104,14 @@ class GA:
         """
         # write genlib
         genlib_path = join(self.iteration_dir, f"{population_id}.genlib")
+        dest = genlib_path.replace('.genlib', '.v')
         chosen_cell_map = self.decode_chromosome(chromosome)
         self.library.write_library_genlib(
             chosen_cell_map, 
             genlib_path,
         )
         # get cost
-        cost = self.abcSession.run_ga_genlib(self.design_path, genlib_path)
+        cost = self.abcSession.run_ga_genlib(self.design_path, genlib_path, dest)
         return cost
     def get_fitnesses(self, population, use_hash=True):
         """
@@ -117,43 +119,55 @@ class GA:
         If the chromosome is seen before, swap it to 
         the end of the population.
         """
-        end_pos = len(population)-1
         genlib_paths = []
-        i = 0
-        while i <= end_pos:
-            while self.get_chromosome_str(population[i]) in self.seen and end_pos > i:
-                population[i], population[end_pos] = population[end_pos], population[i]
-                end_pos -= 1
-                # print(f"Skip chromosome: {i}")
+        # seen_population = [ch for ch in population if self.get_chromosome_str(ch) in self.seen]
+        # # Assuming population is a list of strings and self.seen is a set or list of seen elements
+        not_seen_pop, seen_pop = [ch for ch in population if self.get_chromosome_str(ch) not in self.seen],  [ch for ch in population if self.get_chromosome_str(ch) in self.seen]
+        self.population = not_seen_pop + seen_pop
+        for i, ch in enumerate(not_seen_pop):
             genlib_path = join(self.iteration_dir, f"{i}.genlib")
-            chosen_cell_map = self.decode_chromosome(population[i])
-            # if 'init' in self.iteration_dir:
-            #     print(f"writing init genlib: {i}.genlib")
+            chosen_cell_map = self.decode_chromosome(ch)
             self.library.write_library_genlib(
                 chosen_cell_map, 
                 genlib_path,
             )
             genlib_paths.append(genlib_path)
-            i += 1
+        # while i <= end_pos:
+        #     while self.get_chromosome_str(population[i]) in self.seen and end_pos > i:
+        #         population[i], population[end_pos] = population[end_pos], population[i]
+        #         end_pos -= 1
+        #         # print(f"Skip chromosome: {i}")
+        #     genlib_path = join(self.iteration_dir, f"{i}.genlib")
+        #     chosen_cell_map = self.decode_chromosome(population[i])
+        #     # if 'init' in self.iteration_dir:
+        #     #     print(f"writing init genlib: {i}.genlib")
+        #     self.library.write_library_genlib(
+        #         chosen_cell_map, 
+        #         genlib_path,
+        #     )
+        #     genlib_paths.append(genlib_path)
+        #     i += 1
         costs = []
-        if end_pos != 0:
+        if len(not_seen_pop) != 0:
             dests = [genlib_path.replace('.genlib', '.v') for genlib_path in genlib_paths]
             # print(dests)
             costs = self.abcSession.run_ga_genlib_all(self.design_path, genlib_paths, dests)
-            if use_hash:
-                self.seen.update({self.get_chromosome_str(ch): (cost, dest) for ch, cost, dest in zip(population, costs, dests)})
-        costs.extend(self.seen[self.get_chromosome_str(population[i])][0] for i in range(len(costs), len(population)))
+            self.seen.update({self.get_chromosome_str(ch): (cost, dest) for ch, cost, dest in zip(not_seen_pop, costs, dests)})
+        costs.extend(self.seen[self.get_chromosome_str(ch)][0] for ch in seen_pop)
+        # print(len(costs))
         return costs
 
 
     # def get_fitnesses(self, population):
     #     fitnesses = []
     #     for i, chromo in enumerate(population): 
-    #         print(self.decode_chromosome(chromo))
+    #         dest = join(self.iteration_dir, f"{i}.v")
+    #         # print(self.decode_chromosome(chromo))
     #         start = time.time()
     #         fitnesses.append(self.fitness(chromo, i))
     #         end = time.time()
-    #         print(f"{i}-th chromo, cost: {fitnesses[-1]}, takes: {end-start:.2f} sec")
+    #         # print(f"{i}-th chromo, cost: {fitnesses[-1]}, takes: {end-start:.2f} sec")
+    #         self.seen.update({self.get_chromosome_str(chromo): (fitnesses[-1], dest)})
     #     return np.array(fitnesses)
         # return np.array([self.fitness(chromo, i) for i, chromo in enumerate(population)])
     # def select_parents_rank(self, fitnesses):
@@ -245,15 +259,19 @@ class GA:
         # calculate fitnesses for each population
         start = time.time()
         self._preprocess_population()
+        # for i, c in enumerate(self.population):
+        #     for j, g in enumerate(self.population[i]):
+        #         print(self.gate_types[j], self.decode_gene(g), end=', ')
+        #     print(f" seen: {self.get_chromosome_str(c) in self.seen}")
         fitnesses = self.get_fitnesses(self.population)
         end = time.time()
         # log(f"Fitness calculation takes {end-start:.2f} seconds")
         # for i, c in enumerate(self.population):
-            # for j, g in enumerate(self.population[i]):
-                # print(self.gate_types[j], self.decode_gene(g), end=', ')
-            # print()
-            # print(f"chromosome-{i}:",[val['cell_name'] for key, val in self.decode_chromosome(c).items()])
-            # print(f" cost: {fitnesses[i]}")
+        #     for j, g in enumerate(self.population[i]):
+        #         print(self.gate_types[j], self.decode_gene(g), end=', ')
+        #     # print()
+        #     # print(f"chromosome-{i}:",[val['cell_name'] for key, val in self.decode_chromosome(c).items()])
+        #     print(f" cost: {fitnesses[i]},  seen: {self.get_chromosome_str(c) in self.seen}")
         best_cost_id = np.argmin(fitnesses)
         # chromosome act like pointer here, takes 2 hours to find. fuck
         cost, chromosome = fitnesses[best_cost_id], self.population[best_cost_id][:]
@@ -299,7 +317,7 @@ class GA:
             if self.pq.qsize() > self.k_solution:
                 a = self.pq.get()
                 # print(f"poped: {a}")
-            # self.mutation_rate -= (ori_mutation_rate - tar_mutation_rate) / self.n_iter
+            self.mutation_rate -= (ori_mutation_rate - tar_mutation_rate) / self.n_iter
             # print(self.mutation_rate)
             end = time.time()
             log(f"Iteration {iteration}, cost: {cost}, best cost: {best_cost} at {best_cost_iteration}", end='')
@@ -326,5 +344,8 @@ class GA:
                 g: self.cell_map[g][cell_id] for i, (g, cell_id) in enumerate(zip(self.gate_types, best_cell_id))
             }
             min_cell_maps.append(min_cell_map)
+            if self.pq.empty():
+                with open("best_ga.txt", 'w') as f:
+                    f.write(' '.join([x['cell_name'] for x in self.decode_chromosome(chromosome).values()]))
         print(f"top {self.k_solution} cost: {[i for i in costs]}")
         return min_cell_maps, costs

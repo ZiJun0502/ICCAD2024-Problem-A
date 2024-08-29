@@ -123,6 +123,7 @@ class Library:
         for i, line in enumerate(lines):
             if line.strip():  # Ensure the line is not empty or just whitespace
                 if line.strip().startswith('not_dummy'):
+                    # print("replacing dummy")
                     # Extract the original A input net
                     original_a_net = line.split('.A(')[1].split(')')[0].strip()
                     # Construct the replacement line

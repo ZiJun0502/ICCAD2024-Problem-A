@@ -6,7 +6,7 @@ from utils.cost_interface import CostInterface
 
 # designs = [f"design{i}.v" for i in range(1, 7)]
 # cost_estimators = [f"cost_estimator_{i}" for i in range(1, 9)]
-designs = [f"design{i}.v" for i in [1,2,3,4,5]]
+designs = [f"design{i}.v" for i in [5,6]]
 cost_estimators = [f"cost_estimator_{i}" for i in [1, 2, 3, 4, 5, 6, 7, 8]]
 # designs = [f"design{i}.v" for i in range(1, 7)]
 # cost_estimators = [f"cost_estimator_{i}" for i in range(1, 9)]

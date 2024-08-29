@@ -1,4 +1,5 @@
 import os
+import shutil
 import random
 import sys
 # Add the parent directory to sys.path
@@ -39,8 +40,9 @@ def main():
     if not os.path.exists(params['playground_dir']):
         os.mkdir(params['playground_dir'])
     params['playground_dir'] = os.path.join(params['playground_dir'], f"{os.path.basename(params['design_file'][:-2])}-{os.path.basename(params['cost_estimator'])}")
-    if not os.path.exists(params['playground_dir']):
-        os.mkdir(params['playground_dir'])
+    if os.path.exists(params['playground_dir']):
+        shutil.rmtree(params['playground_dir'])
+    os.mkdir(params['playground_dir'])
     # init modules
     config = Config(
         params=params
@@ -66,10 +68,10 @@ def main():
         Phase 1: GA-genlib
         """
         print([x['cell_name'] for x in library.min_cell_map.values()])
-        if first:
-            n_iter = params['ga_n_iter']
-        else:
-            n_iter = random.randint(10, params['ga_n_iter'])
+        # if first:
+        n_iter = params['ga_n_iter']
+        # else:
+            # n_iter = random.randint(10, params['ga_n_iter'])
             # n_iter = 10
         ga = GA(
             n=params['ga_n'],
@@ -124,12 +126,13 @@ def main():
             init_solution=sa_init_solution, 
             init_cost=epoch_cost, 
             cell_map=copy.deepcopy(best_cells_map),
+            # cell_map=best_cells_map,
             temp_h=4000000000, temp_l=0.1, 
-            cooling_rate=0.5, num_iterations=500,
+            cooling_rate=0.5, num_iterations=250,
         )
         min_cell_map, sa_min_cost = sa.run()
         print(f"SA minimum cost: {sa_min_cost}, GA minimum cost: {ga_genlib_min_cost}")
-        if sa_min_cost < ga_genlib_min_cost:
+        if sa_min_cost <= ga_genlib_min_cost:
             library.write_library_genlib_all(
                 cell_map=min_cell_map, 
                 dest=os.path.join(library.genlib_dir_path, "library.genlib")
@@ -153,6 +156,7 @@ def main():
         # dim_limit = [(0, len_commands-len_choices) for _ in range(params['abc_ga_seq_len'])]
         dim_limit = [(0, len_commands-len_choices) for _ in range(params['abc_ga_seq_len']-len_choice_commands)] + \
                     [(len_commands-len_choices-2, len_commands) for _ in range(len_choice_commands)]
+        print(dim_limit)
         abc_ga = AbcGA(
             design_path=abc_session.preprocessed_design_path,
             output_path=params['output_path'],
@@ -179,7 +183,9 @@ def main():
         if epoch_cost < session_min_cost:
             session_min_cost = epoch_cost
             print(f"New session min cost: {session_min_cost}")
-        assert cost_interface.get_cost(abc_ga.best_path) == abc_ga_min_cost
+        abc_ga_best_cost = cost_interface.get_cost(abc_ga.best_path)
+        print(f"abc_ga best path: {abc_ga.best_path}, cost: {abc_ga_best_cost}")
+        assert  abc_ga_best_cost == abc_ga_min_cost
         # print(f"abcGA min cost: {epoch_cost}")
 
         opt = PostOptimizor()

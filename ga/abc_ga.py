@@ -98,31 +98,33 @@ class AbcGA(GA):
         so that in output_netlist, it won't access empty path
         """
         i, end_pos = 0, len(population) - 1
-        dests = []
-        while i <= end_pos:
-            while self.get_chromosome_str(population[i]) in self.seen and end_pos > i:
-                population[i], population[end_pos] = population[end_pos], population[i]
-                end_pos -= 1
-                # print(f"Skip chromosome: {i}")
-            if end_pos == 0:
-                break
-            dests.append(join(self.iteration_dir, f"netlist_{i}.v"))
-            i += 1
+        not_seen_pop, seen_pop = [ch for ch in population if self.get_chromosome_str(ch) not in self.seen],  [ch for ch in population if self.get_chromosome_str(ch) in self.seen]
+        self.population = not_seen_pop + seen_pop
+        dests = [join(self.iteration_dir, f"netlist_{i}.v") for i in range(len(not_seen_pop))]
+        # while i <= end_pos:
+        #     while self.get_chromosome_str(population[i]) in self.seen and end_pos > i:
+        #         population[i], population[end_pos] = population[end_pos], population[i]
+        #         end_pos -= 1
+        #         # print(f"Skip chromosome: {i}")
+        #     if end_pos == 0:
+        #         break
+        #     dests.append(join(self.iteration_dir, f"netlist_{i}.v"))
+        #     i += 1
         costs = []
         command_lists = []
-        if end_pos != 0:
-            command_lists = [self.decode_chromosome(c) for c in population]
+        if len(not_seen_pop) != 0:
+            command_lists = [self.decode_chromosome(c) for c in not_seen_pop]
             costs = self.abcSession.run_ga_abc_all(self.design_path, 
                                                 self.library_path,
-                                                command_lists[:i],
+                                                command_lists,
                                                 dests)
             # self.seen ==> {chromosome: string: (cost: float, path_to_netlist: str)}
-            if use_hash:
+            # if use_hash:
                 # for i in range(len(dests)):
                 #     self.seen[self.get_chromosome_str(population[i])] = costs[i], dests[i]
-                self.seen.update({self.get_chromosome_str(ch): (cost, dest) for ch, cost, dest in zip(population, costs, dests)})
-        costs.extend(self.seen[self.get_chromosome_str(population[i])][0] for i in range(len(costs), len(population)))
-        # [print(i) for i in [self.decode_chromosome(ch) for ch in population]]
+            self.seen.update({self.get_chromosome_str(ch): (cost, dest) for ch, cost, dest in zip(not_seen_pop, costs, dests)})
+        costs.extend(self.seen[self.get_chromosome_str(ch)][0] for ch in seen_pop)
+        [print(i) for i in [self.decode_chromosome(ch) for ch in population]]
         return costs
     def fitness(self, chromosome, population_id=0):
         actions = self.decode_chromosome(chromosome)
@@ -144,6 +146,8 @@ class AbcGA(GA):
                 self.best_iteration = iteration
                 self.best_id = id
                 print(self.decode_chromosome(chromosome))
+                with open("abc_ga_best.txt", 'w') as f:
+                    f.write('; '.join(self.decode_chromosome(chromosome)))
                 self.best_path = self.seen[self.get_chromosome_str(chromosome)][1]
         print(f"top {self.k_solution} cost: {[i for i in costs]}")
         return min_action_seqs, self.best_iteration, self.best_id, self.best_path, costs

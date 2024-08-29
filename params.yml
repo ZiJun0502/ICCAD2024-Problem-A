@@ -20,8 +20,8 @@ actions:
   # - 'st; multi -F 150 -m; sop -n -C 5000000; fx; resyn2'
   - rwsat
   - drwsat2
-  - 'if -g; st;'
-  - 'if -p; st;'
+  - 'if -g;st;'
+  - 'if -p;st;'
   # - cleanup
   # - dsd
   - ' '
@@ -29,9 +29,7 @@ actions:
   - dc2
   - dc2 -p
   - dch 
-  - dch -f
   - dch -p
-  - dch -fp
   - choice
   - choice2
   # removed
@@ -47,8 +45,8 @@ playground_dir: playground
 abc_ga_seq_len: 10
 abc_ga_n_init: 80
 abc_ga_n: 30
-abc_ga_n_iter: 20
+abc_ga_n_iter: 25
 
 ga_n_init: 100
 ga_n: 50
-ga_n_iter: 10
+ga_n_iter: 30
