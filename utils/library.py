@@ -260,4 +260,4 @@ class Library:
 
             f.write('GATE ZERO      1  Y=CONST0;\n')
             f.write('GATE ONE       1  Y=CONST1;\n')
-            # f.write('GATE not_dummy    1  Y=!A;                   PIN * INV 1 999 1 0 1 0')
+            f.write('GATE not_dummy    1  Y=!A;                   PIN * INV 1 999 1 0 1 0')
