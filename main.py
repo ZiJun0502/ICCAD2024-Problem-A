@@ -156,6 +156,7 @@ def main():
         # dim_limit = [(0, len_commands-len_choices) for _ in range(params['abc_ga_seq_len'])]
         dim_limit = [(0, len_commands-len_choices) for _ in range(params['abc_ga_seq_len']-len_choice_commands)] + \
                     [(len_commands-len_choices-2, len_commands) for _ in range(len_choice_commands)]
+        dim_limit = [(0, len_commands) for _ in range(params['abc_ga_seq_len'])]
         print(dim_limit)
         abc_ga = AbcGA(
             design_path=abc_session.preprocessed_design_path,

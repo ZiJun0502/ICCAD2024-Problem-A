@@ -21,7 +21,7 @@ class AbcGA(GA):
         len_choice_commands = 4
         num_command_types = len(self.actions)
         len_choices = sum(i in choice_commands for i in self.actions)
-        kwargs['dim_limit'] = [(0, num_command_types-len_choices) for _ in range(self.seq_len)]
+        kwargs['dim_limit'] = [(0, num_command_types) for _ in range(self.seq_len)]
         kwargs['dim_limit'] = [(0, num_command_types-len_choices) for _ in range(self.seq_len)] + \
                     [(num_command_types-len_choices-2, num_command_types) for _ in range(len_choice_commands)]
         self.n_choice = n_choice # suffix length that allow choice command
@@ -124,7 +124,7 @@ class AbcGA(GA):
                 #     self.seen[self.get_chromosome_str(population[i])] = costs[i], dests[i]
             self.seen.update({self.get_chromosome_str(ch): (cost, dest) for ch, cost, dest in zip(not_seen_pop, costs, dests)})
         costs.extend(self.seen[self.get_chromosome_str(ch)][0] for ch in seen_pop)
-        [print(i) for i in [self.decode_chromosome(ch) for ch in population]]
+        # [print(i) for i in [self.decode_chromosome(ch) for ch in population]]
         return costs
     def fitness(self, chromosome, population_id=0):
         actions = self.decode_chromosome(chromosome)
