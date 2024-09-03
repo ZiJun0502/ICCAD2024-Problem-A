@@ -184,7 +184,7 @@ class Library:
             for gate_type in self.gate_types:
                 if gate_type in self.removed_cells:
                     if gate_type == 'not':
-                        f.write('GATE not_dummy    0.1  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
+                        f.write('GATE not_dummy    0.8  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
                 else:
                     # cell_area = random.random()
                     cell = chosen_cell_map[gate_type]
@@ -199,7 +199,7 @@ class Library:
                     f.write(f"{gate_name:<40}\n{pin_info}\n")
             f.write('GATE ZERO      1  Y=CONST0;\n')
             f.write('GATE ONE       1  Y=CONST1;\n')
-            f.write('GATE not_dummy    0.1  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
+            f.write('GATE not_dummy    0.8  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
 
     def write_library_genlib_all(self, dest, cell_map={}):
         if not cell_map:
@@ -247,7 +247,7 @@ class Library:
             for gate_type in self.gate_types:
                 if gate_type in self.removed_cells:
                     if gate_type == 'not':
-                        f.write('GATE not_dummy    0.1  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
+                        f.write('GATE not_dummy    0.8  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
                         continue
                 for cell in cell_map.get(gate_type):
                     function = cell_function.get(gate_type)
@@ -261,4 +261,4 @@ class Library:
 
             f.write('GATE ZERO      1  Y=CONST0;\n')
             f.write('GATE ONE       1  Y=CONST1;\n')
-            f.write('GATE not_dummy    0.1  Y=!A;                   PIN * INV 1 999 1 0 1 0')
+            f.write('GATE not_dummy    0.8  Y=!A;                   PIN * INV 1 999 1 0 1 0')
