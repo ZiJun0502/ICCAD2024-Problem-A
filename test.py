@@ -6,8 +6,8 @@ import yaml
 class Params:
     def __init__(self):
         self.library = "./release/lib/lib1.json"
-        self.cost_estimator_path = "./release/cost_estimators/cost_estimator_1"
-        self.netlist = "./release/netlists/design4.v"
+        self.cost_estimator_path = "./release/cost_estimators/cost_estimator_8"
+        self.netlist = "./release/netlists/design2.v"
         self.output = "./a.v"
         with open('params.yml', 'r') as file:
             self.params = yaml.safe_load(file)
@@ -37,7 +37,7 @@ library = Library(
 # print(min_cost_path, min_cost)
 # filename = "./playground/2/18_abc_mapped.v"
 # filename = "./playground/design2-cost_estimator_1/abc_ga/init_abc_ga/netlist_1.v"
-filename = "temp7.v"
+filename = "temp8.v"
 # filename = "temp7_baseline.v"
 library.replace_dummy(filename)
 print(cost_interface.get_cost(filename))

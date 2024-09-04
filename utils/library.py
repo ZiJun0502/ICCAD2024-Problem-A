@@ -199,7 +199,7 @@ class Library:
                     f.write(f"{gate_name:<40}\n{pin_info}\n")
             f.write('GATE ZERO      1  Y=CONST0;\n')
             f.write('GATE ONE       1  Y=CONST1;\n')
-            f.write('GATE not_dummy    0.8  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
+            # f.write('GATE not_dummy    0.8  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
 
     def write_library_genlib_all(self, dest, cell_map={}):
         if not cell_map:
