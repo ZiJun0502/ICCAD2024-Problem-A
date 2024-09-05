@@ -25,5 +25,7 @@ class CostInterface:
             '-netlist', design_path,
             '-output', cost_output
         ])
+        # print(design_path)
+        # print(proc.decode())
         cost = float((proc.decode('utf-8')).strip(' ').split('=')[1])
         return cost

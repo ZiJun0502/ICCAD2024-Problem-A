@@ -15,6 +15,7 @@ class AbcGA(GA):
         design_path = self._filter_commands()
         kwargs['design_path'] = design_path
         self.seq_len = seq_len
+        kwargs['dim'] = self.seq_len
         self.actions_map = {i: action for i, action in enumerate(self.actions)}
         # choice commands
         self.choice_commands = choice_commands | {' '}
@@ -22,7 +23,7 @@ class AbcGA(GA):
         num_command_types = len(self.actions)
         len_choices = sum(i in choice_commands for i in self.actions)
         kwargs['dim_limit'] = [(0, num_command_types) for _ in range(self.seq_len)]
-        kwargs['dim_limit'] = [(0, num_command_types-len_choices) for _ in range(self.seq_len)] + \
+        kwargs['dim_limit'] = [(0, num_command_types-len_choices) for _ in range(self.seq_len-len_choice_commands)] + \
                     [(num_command_types-len_choices-2, num_command_types) for _ in range(len_choice_commands)]
         self.n_choice = n_choice # suffix length that allow choice command
         kwargs['dir_suffix'] = 'abc_ga' 

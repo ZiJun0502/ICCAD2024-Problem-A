@@ -23,10 +23,10 @@ class Library:
             self.gate_types = []
             self.cost_interface = CostInterface()
 
+            self.config = Config()
             self.load_library(library_path)
             self.get_lowest()
             self.omit_large_cell()
-            self.config = Config()
             self.genlib_dir_path = join(self.config.params['playground_dir'], "lib")
             if not exists(self.genlib_dir_path):
                 mkdir(self.genlib_dir_path)
@@ -54,8 +54,11 @@ class Library:
     def get_lowest(self):
         src = ""
         get_low_file = "./DRiLLS/get_low.v"
+        playground_get_low_file = join(self.config.params['playground_dir'], "get_low.v")
         with open(get_low_file, "r") as f:
             src = f.readlines()
+            with open(playground_get_low_file, "w") as ff:
+                ff.write("\n".join(src))
         GATE_LINE_BEGIN, GATE_LINE_END = 4, 14
         for gate_type in self.gate_types:
             min_cost = float('inf')
@@ -70,10 +73,10 @@ class Library:
                     gate_line = self.format_line(cell['cell_name'], inputs, output) + '\n'
 
                     src[j] = gate_line
-                with open(get_low_file, "w") as f:
+                with open(playground_get_low_file, "w") as f:
                     f.write("".join(src))
 
-                cost = self.cost_interface.get_cost(get_low_file)# / (GATE_LINE_END - GATE_LINE_BEGIN)
+                cost = self.cost_interface.get_cost(playground_get_low_file)# / (GATE_LINE_END - GATE_LINE_BEGIN)
                 self.cell_map[gate_type][i]['cost'] = cost
                 if cost < min_cost:
                     min_cost = cost
@@ -199,7 +202,7 @@ class Library:
                     f.write(f"{gate_name:<40}\n{pin_info}\n")
             f.write('GATE ZERO      1  Y=CONST0;\n')
             f.write('GATE ONE       1  Y=CONST1;\n')
-            f.write('GATE not_dummy    0.8  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
+            # f.write('GATE not_dummy    0.8  Y=!A;                   PIN * INV 1 999 1 0 1 0\n')
 
     def write_library_genlib_all(self, dest, cell_map={}):
         if not cell_map:

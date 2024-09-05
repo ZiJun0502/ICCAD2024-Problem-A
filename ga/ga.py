@@ -13,8 +13,8 @@ def log(message: str, end='\n'):
     pass
 class GA:
     def __init__(self, n=50, n_init=100, dim=8, dim_limit=[], bits=5, 
-                 crossover_rate=0.9, mutation_rate=0.4, n_iter=20, k_solution=5,
-                 design_path="", output_path="", session_min_cost=float('inf'), init_population=[],
+                 crossover_rate=0.9, mutation_rate=0.4, mutation_decay=False, n_iter=20, k_solution=5,
+                 design_path="", output_path="", session_min_cost=float('inf'), session_start=0, init_population=[],
                  dir_suffix="ga_genlib"):
         self.dir_suffix = dir_suffix
         self.n = n
@@ -24,6 +24,8 @@ class GA:
         self.bits = bits
         self.crossover_rate = crossover_rate
         self.mutation_rate = mutation_rate
+        self.mutation_decay = mutation_decay
+        self.mutate_record = []
         self.n_iter = n_iter
         self.k_solution = k_solution
         self.seen = {}
@@ -34,6 +36,7 @@ class GA:
             self.design_path = design_path
         self.output_path = output_path
         self.session_min_cost = session_min_cost
+        self.session_start = session_start
         self.playground_dir = join(self.config.params['playground_dir'], dir_suffix)
         if not exists(self.playground_dir):
             mkdir(self.playground_dir)
@@ -225,12 +228,18 @@ class GA:
         gene = gene[:i] + val + gene[i+1:]
         return gene
     def mutate(self, chromosome):
+        if len(self.mutate_record)==len(self.population):
+            self.mutate_record = []
         if random.random() > self.mutation_rate:
+            self.mutate_record.append((-1, -1))
             return chromosome
+        temp = ()
         for i in range(2):
             gene_idx = random.randint(0, self.dim - 1)
+            temp = temp + (gene_idx,)
             g = self.random_gene(self.dim_limit[gene_idx])
             chromosome[gene_idx] = g
+        self.mutate_record.append(temp)
         return chromosome
     # def mutate(self, chromosome):
     #     if random.random() > self.mutation_rate:
@@ -267,11 +276,18 @@ class GA:
         end = time.time()
         # log(f"Fitness calculation takes {end-start:.2f} seconds")
         # for i, c in enumerate(self.population):
+        #     print(self.decode_chromosome(c), "mutate: ", f"cost: {fitnesses[i]}", end='')
+        #     if self.mutate_record:
+        #         print(f" mutate: {self.mutate_record[i]}")
+        #     else:
+        #         print()
+        # print(f"observed mutation rate: {1 - sum([1 for i in self.mutate_record if i == (-1, -1)])/len(self.population)}")
+        # print(f"real mutation rate: {self.mutation_rate}")
         #     for j, g in enumerate(self.population[i]):
         #         print(self.gate_types[j], self.decode_gene(g), end=', ')
         #     # print()
         #     # print(f"chromosome-{i}:",[val['cell_name'] for key, val in self.decode_chromosome(c).items()])
-        #     print(f" cost: {fitnesses[i]},  seen: {self.get_chromosome_str(c) in self.seen}")
+            # print(f" cost: {fitnesses[i]},  seen: {self.get_chromosome_str(c) in self.seen}")
         best_cost_id = np.argmin(fitnesses)
         # chromosome act like pointer here, takes 2 hours to find. fuck
         cost, chromosome = fitnesses[best_cost_id], self.population[best_cost_id][:]
@@ -281,8 +297,14 @@ class GA:
         for _ in range(self.n // 2):
             parent1, parent2 = self.select_parents_rank(fitnesses, num_parents=self.n//2)
             child1, child2 = self.crossover(parent1, parent2)
-            new_population.append(self.mutate(child1))
-            new_population.append(self.mutate(child2))
+            mchild1 = self.mutate(child1[:])
+            mchild2 = self.mutate(child2[:])
+            # for a, b in zip(child1, mchild1):
+            #     if a != b:
+            #         if self.dir_suffix == 'abc_ga':
+            #             print(f"Ori: {self.decode_gene_to_action(a)}, mutated: {self.decode_gene_to_action(b)}")
+            new_population.append(mchild1)
+            new_population.append(mchild2)
         self.population = new_population
         end = time.time()
         # log(f"Crossover takes {end-start:.2f} seconds")
@@ -317,11 +339,17 @@ class GA:
             if self.pq.qsize() > self.k_solution:
                 a = self.pq.get()
                 # print(f"poped: {a}")
-            self.mutation_rate -= (ori_mutation_rate - tar_mutation_rate) / self.n_iter
+            if self.mutation_decay:
+                self.mutation_rate -= (ori_mutation_rate - tar_mutation_rate) / self.n_iter
             # print(self.mutation_rate)
             end = time.time()
             log(f"Iteration {iteration}, cost: {cost}, best cost: {best_cost} at {best_cost_iteration}", end='')
             log(f", takes {end-start:.2f} seconds")
+            print(f"remaining time: {10800-(end-self.session_start)}")
+            # remaining time smaller than 8 minutes
+            if 10800 - (end - self.session_start) < 480 + end-start:
+                print(f"Terminate GA at iteration: {iteration}, current time: {end}, start time: {self.session_start}, time elapsed: {end - self.session_start}")
+                break
         log(f"Evolve total takes: {evolve_time:.2f}")
         # log(f"Best cost: {best_cost}, at iteration: {best_iteration}")
     def save_netlist(self, iteration, id, chromosome):
