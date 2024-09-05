@@ -98,6 +98,7 @@ class PostOptimizor:
         # print(net, buf_gate_count)
         buf_pattern = f"{net}_buf_{{}}"
         child_net = buf_pattern.format(0)
+        new_buf_wire_names = [child_net]
         # queue storing leaf nets
         leaf_nets = Queue()
         parent_net = child_net
@@ -112,6 +113,7 @@ class PostOptimizor:
                 leaf_nets.get()
             for j in range(max_fanout):
                 child_net = buf_pattern.format(buf_net_child_id)
+                new_buf_wire_names.append(child_net)
                 leaf_nets.put(child_net)
                 buffer_declaration = f"{buf_cell_name} b{buf_gate_count:05}(.A({parent_net}), .Y({child_net}));\n"
                 buffer_declarations.append(buffer_declaration)
@@ -125,16 +127,18 @@ class PostOptimizor:
             buf_net_parent_id += 1
             parent_net = buf_pattern.format(buf_net_parent_id)
         leaf_nets = [leaf_nets.get() for i in range(leaf_nets.qsize())]
-        return buffer_declarations, leaf_nets
-    def count_fanout(self, netlist_path):
+        return buffer_declarations, leaf_nets, new_buf_wire_names
+    def insert_buffers(self, netlist_path, dest_path='', max_fanout=5, buf_cell_name=''):
         with open(netlist_path, 'r') as file:
             lines = file.readlines()
         net_fanout = defaultdict(int)
         net_driving_line = defaultdict(list)
-        
+        wire_declaration_line = -1
         # Regular expression to capture the nets in each line
         net_regex = re.compile(r'\.(?:A|B|Y)\(([^)]+)\)')
         for i, line in enumerate(lines):
+            if len(line.strip()) and line.strip()[-1] == ';' and wire_declaration_line == -1:
+                wire_declaration_line = i
             # Find all nets in the current line
             matches = net_regex.findall(line)
             if len(matches) == 2:
@@ -147,7 +151,47 @@ class PostOptimizor:
                 net_fanout[B] += 1
                 net_driving_line[A].append(i)
                 net_driving_line[B].append(i)
-        return net_fanout
+        modified_netlist, endmodule_str = lines[:-3], lines[-3:]
+
+        # buf_cell_name = self.library.min_cell_map['buf']['cell_name']
+        global buf_gate_count
+        buf_gate_count = 0
+        buf_wire_names = []
+        # Inserting buffers and modifying lines
+        for net, count in net_fanout.items():
+            if count > max_fanout:
+                buffer_declarations, leaf_nets, cur_buf_wire_names = self.insert_buffers_(
+                    net=net,
+                    fanout=count,
+                    max_fanout=max_fanout,
+                    buf_cell_name=buf_cell_name
+                )
+                
+                # Distribute fanout across buffer stages
+                for i, line_index in enumerate(net_driving_line[net]):
+                    modified_netlist[line_index] = re.sub(rf'\.A\({net}\)', f'.A({leaf_nets[i]})', modified_netlist[line_index])
+                    modified_netlist[line_index] = re.sub(rf'\.B\({net}\)', f'.B({leaf_nets[i]})', modified_netlist[line_index])
+                modified_netlist += buffer_declarations
+                buf_wire_names += cur_buf_wire_names
+        wire_declaration_block = ""
+        if len(buf_wire_names):
+            def chunk_list(lst, chunk_size):
+                for i in range(0, len(lst), chunk_size):
+                    yield lst[i:i + chunk_size]
+
+            # Generate the wire declaration block with a maximum of 10 nets per line
+            chunk_size = 30  # Maximum nets per line
+            wire_declaration_lines = [", ".join(chunk) for chunk in chunk_list(buf_wire_names, chunk_size)]
+            wire_declaration_block = "  wire " + ",\n    ".join(wire_declaration_lines) + ";\n"
+        modified_netlist.insert(wire_declaration_line + 1, wire_declaration_block)
+        # # Write the modified netlist back
+        # print(dest_path)
+        if dest_path:
+            with open(dest_path, 'w') as file:
+                file.writelines(modified_netlist + endmodule_str)
+        # else:
+        #     with open(netlist_path, 'w') as file:
+        #         file.writelines(modified_netlist + endmodule_str)
     def run_insert_buffers(self, design_path, buf_cells):
         min_cost = float('inf')
         min_cost_cell = ""
@@ -173,52 +217,3 @@ class PostOptimizor:
             print(f"Buffer: {buf_cell_name} min cost: {min_fanout_cost:.6f} with max fanout: {min_cost_fanout}")
         # print(f"Buffer min cost: {min_cost}, with buf cell: {min_cost_cell}, with fanout: {min_cost_fanout}")
         return best_buffer_netlist, min_cost
-    def insert_buffers(self, netlist_path, dest_path='', max_fanout=5, buf_cell_name=''):
-        with open(netlist_path, 'r') as file:
-            lines = file.readlines()
-        net_fanout = defaultdict(int)
-        net_driving_line = defaultdict(list)
-        
-        # Regular expression to capture the nets in each line
-        net_regex = re.compile(r'\.(?:A|B|Y)\(([^)]+)\)')
-        for i, line in enumerate(lines):
-            # Find all nets in the current line
-            matches = net_regex.findall(line)
-            if len(matches) == 2:
-                A, Y = matches
-                net_fanout[A] += 1
-                net_driving_line[A].append(i)
-            elif len(matches) == 3:
-                A, B, Y = matches
-                net_fanout[A] += 1
-                net_fanout[B] += 1
-                net_driving_line[A].append(i)
-                net_driving_line[B].append(i)
-        modified_netlist, endmodule_str = lines[:-3], lines[-3:]
-
-        # buf_cell_name = self.library.min_cell_map['buf']['cell_name']
-        global buf_gate_count
-        buf_gate_count = 0
-        # Inserting buffers and modifying lines
-        for net, count in net_fanout.items():
-            if count > max_fanout:
-                buffer_declarations, leaf_nets = self.insert_buffers_(
-                    net=net,
-                    fanout=count,
-                    max_fanout=max_fanout,
-                    buf_cell_name=buf_cell_name
-                )
-                
-                # Distribute fanout across buffer stages
-                for i, line_index in enumerate(net_driving_line[net]):
-                    modified_netlist[line_index] = re.sub(rf'\.A\({net}\)', f'.A({leaf_nets[i]})', modified_netlist[line_index])
-                    modified_netlist[line_index] = re.sub(rf'\.B\({net}\)', f'.B({leaf_nets[i]})', modified_netlist[line_index])
-                modified_netlist += buffer_declarations
-        # # Write the modified netlist back
-        # print(dest_path)
-        if dest_path:
-            with open(dest_path, 'w') as file:
-                file.writelines(modified_netlist + endmodule_str)
-        # else:
-        #     with open(netlist_path, 'w') as file:
-        #         file.writelines(modified_netlist + endmodule_str)
