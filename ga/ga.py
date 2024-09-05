@@ -14,7 +14,7 @@ def log(message: str, end='\n'):
 class GA:
     def __init__(self, n=50, n_init=100, dim=8, dim_limit=[], bits=5, 
                  crossover_rate=0.9, mutation_rate=0.4, mutation_decay=False, n_iter=20, k_solution=5,
-                 design_path="", output_path="", session_min_cost=float('inf'), init_population=[],
+                 design_path="", output_path="", session_min_cost=float('inf'), session_start=0, init_population=[],
                  dir_suffix="ga_genlib"):
         self.dir_suffix = dir_suffix
         self.n = n
@@ -36,6 +36,7 @@ class GA:
             self.design_path = design_path
         self.output_path = output_path
         self.session_min_cost = session_min_cost
+        self.session_start = session_start
         self.playground_dir = join(self.config.params['playground_dir'], dir_suffix)
         if not exists(self.playground_dir):
             mkdir(self.playground_dir)
@@ -344,6 +345,11 @@ class GA:
             end = time.time()
             log(f"Iteration {iteration}, cost: {cost}, best cost: {best_cost} at {best_cost_iteration}", end='')
             log(f", takes {end-start:.2f} seconds")
+            print(f"remaining time: {10800-(end-self.session_start)}")
+            # remaining time smaller than 8 minutes
+            if 10800 - (end - self.session_start) < 480 + end-start:
+                print(f"Terminate GA at iteration: {iteration}, current time: {end}, start time: {self.session_start}, time elapsed: {end - self.session_start}")
+                break
         log(f"Evolve total takes: {evolve_time:.2f}")
         # log(f"Best cost: {best_cost}, at iteration: {best_iteration}")
     def save_netlist(self, iteration, id, chromosome):

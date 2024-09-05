@@ -62,29 +62,30 @@ def main():
     session_min_cost = float('inf')
     epoch = 0
     first = True
-    while session_end - session_start <= 600:
+    while session_end - session_start <= 10800:
         epoch_start = time.time()
         epoch_cost = float('inf')
-        print([(x['cell_name'], x['cost']) for x in library.min_cell_map.values()])
+        # print([(x['cell_name'], x['cost']) for x in library.min_cell_map.values()])
         """
         Phase 1: GA-genlib
         """
-        print([x['cell_name'] for x in library.min_cell_map.values()])
-        # if first:
-        n_iter = params['ga_n_iter']
-        # else:
-            # n_iter = random.randint(10, params['ga_n_iter'])
+        # print([x['cell_name'] for x in library.min_cell_map.values()])
+        if first:
+            n_iter = params['ga_n_iter']
+        else:
+            n_iter = random.randint(10, params['ga_n_iter'])
             # n_iter = 10
         ga = GA(
             n=params['ga_n'],
             n_init=params['ga_n_init'],
             n_iter=n_iter,
-            mutation_decay=False,
+            mutation_decay=True,
             output_path=params['output_path'],
             init_population=[[x['id'] for x in library.min_cell_map.values()]],
             session_min_cost=session_min_cost,
             dim_limit=[len(library.cell_map[gate_type]) for gate_type in library.gate_types],
-            k_solution=5
+            k_solution=5,
+            session_start=session_start,
         )
         start = time.time()
         ga.run()
@@ -161,7 +162,7 @@ def main():
         dim_limit = [(0, len_commands-len_choices) for _ in range(params['abc_ga_seq_len']-len_choice_commands)] + \
                     [(len_commands-len_choices-2, len_commands) for _ in range(len_choice_commands)]
         dim_limit = [(0, len_commands) for _ in range(params['abc_ga_seq_len'])]
-        print(dim_limit)
+        # print(dim_limit)
         abc_ga = AbcGA(
             design_path=abc_session.preprocessed_design_path,
             output_path=params['output_path'],
@@ -177,6 +178,7 @@ def main():
             n_iter=params['abc_ga_n_iter'],
             dim_limit=dim_limit,
             session_min_cost=session_min_cost,
+            session_start=session_start,
         )
         abc_ga.run()
         best_action_seqs, best_iteration, best_id, best_path, abc_ga_costs = abc_ga.get_results()

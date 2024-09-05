@@ -92,7 +92,7 @@ class abcSession:
         cost = self.cost_interface.get_cost(abc_mapped_output_netlist)
         return cost
     def unmap(self, src, dest, library_path):
-        abc_command = f'read_library {library_path};\n'
+        abc_command = f'read_library {os.path.join(self.library.genlib_dir_path, "init_library.genlib")};\n'
         abc_command += f'read -m {src};\n'
         abc_command += 'unmap;\n'
         abc_command += f'write {dest};\n'
