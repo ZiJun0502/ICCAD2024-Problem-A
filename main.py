@@ -69,7 +69,7 @@ def main():
         """
         Phase 1: GA-genlib
         """
-        # print([x['cell_name'] for x in library.min_cell_map.values()])
+        print([x['cell_name'] for x in library.min_cell_map.values()])
         if first:
             n_iter = params['ga_n_iter']
         else:
@@ -124,13 +124,18 @@ def main():
         Phase 2: SA
         """
         sa_init_solution = []
-        for i, (gate_type, cells) in enumerate(best_cells_map.items()):
+        # sa_best_cell_map = copy.deepcopy(best_cell_map)
+        # for gate_type in sa_best_cell_map:
+        #     sa_best_cell_map[gate_type] = [sa_best_cell_map[gate_type]]
+        sa_best_cell_map = best_cells_map
+        for i, (gate_type, cells) in enumerate(sa_best_cell_map.items()):
             for j, cell in enumerate(cells):
                 sa_init_solution.append(cell['cost'])
         sa = SA(
             init_solution=sa_init_solution, 
             init_cost=epoch_cost, 
-            cell_map=copy.deepcopy(best_cells_map),
+            # cell_map=copy.deepcopy(best_cells_map),
+            cell_map=sa_best_cell_map,
             # cell_map=best_cells_map,
             temp_h=4000000000, temp_l=0.1, 
             cooling_rate=0.5, num_iterations=params['sa_n_iter'],
@@ -194,10 +199,11 @@ def main():
         abc_ga_best_cost = cost_interface.get_cost(abc_ga.best_path)
         print(f"abc_ga best path: {abc_ga.best_path}, cost: {abc_ga_best_cost}")
         assert  abc_ga_best_cost == abc_ga_min_cost
-        # print(f"abcGA min cost: {epoch_cost}")
+        print(f"abcGA min cost: {epoch_cost}")
 
         # ASSUME that the min epoch cost is guarenteed to be abc_ga best cost.
         epoch_best_netlist = abc_ga.best_path
+        # epoch_best_netlist = "playground/design3-cost_estimator_1/abc_ga/29_abc_ga/netlist_22.v"
 
         opt = PostOptimizor()
         # phase 3 post map
@@ -207,13 +213,26 @@ def main():
         #         with open(params['output_path'], 'w') as dest:
         #             dest.write(src.read())
         """
-        Phase 4: Buffer Insertion
+        Phase 4: Chain Insertion
+        """
+        best_chain_path, chain_cost = opt.run_chain_insertion(epoch_best_netlist)
+        if chain_cost < epoch_cost:
+            epoch_cost = chain_cost
+            epoch_best_netlist = best_chain_path
+        if epoch_cost < session_min_cost:
+            session_min_cost = epoch_cost
+            print(f"New session min cost: {session_min_cost}")
+            with open(epoch_best_netlist, 'r') as src:
+                with open(params['output_path'], 'w') as dest:
+                    dest.write(src.read())
+        """
+        Phase 5: Buffer Insertion
         """
         best_buffer_netlist = ""
         # find best buffer to insert
         start = time.time()
         best_buffer_netlist, buf_min_cost = opt.run_insert_buffers(
-            design_path=abc_ga.best_path,
+            design_path=epoch_best_netlist,
             buf_cells=library.cell_map['buf']
         )
         end = time.time()
@@ -229,7 +248,7 @@ def main():
                     dest.write(src.read())
         assert cost_interface.get_cost(best_buffer_netlist) == buf_min_cost
         """
-        Phase 5: Gate Sizing
+        Phase 6: Gate Sizing
         """
         start = time.time()
         best_gate_sizing_netlist, gs_min_cost = opt.run_gate_sizing(best_buffer_netlist)

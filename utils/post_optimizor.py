@@ -28,6 +28,10 @@ class PostOptimizor:
             if not exists(self.buffer_temp_dir):
                 mkdir(self.buffer_temp_dir)
 
+            self.chain_temp_dir = join(self.config.params['playground_dir'], "chain")
+            if not exists(self.chain_temp_dir):
+                mkdir(self.chain_temp_dir)
+
             self._initialized = True
 
     def run_gate_sizing(self, design_path, genlib_path="", cell_map={}):
@@ -173,16 +177,7 @@ class PostOptimizor:
                     modified_netlist[line_index] = re.sub(rf'\.B\({net}\)', f'.B({leaf_nets[i]})', modified_netlist[line_index])
                 modified_netlist += buffer_declarations
                 buf_wire_names += cur_buf_wire_names
-        wire_declaration_block = ""
-        if len(buf_wire_names):
-            def chunk_list(lst, chunk_size):
-                for i in range(0, len(lst), chunk_size):
-                    yield lst[i:i + chunk_size]
-
-            # Generate the wire declaration block with a maximum of 10 nets per line
-            chunk_size = 30  # Maximum nets per line
-            wire_declaration_lines = [", ".join(chunk) for chunk in chunk_list(buf_wire_names, chunk_size)]
-            wire_declaration_block = "  wire " + ",\n    ".join(wire_declaration_lines) + ";\n"
+        wire_declaration_block = self.get_wire_declaration_str(buf_wire_names)
         modified_netlist.insert(wire_declaration_line + 1, wire_declaration_block)
         # # Write the modified netlist back
         # print(dest_path)
@@ -217,3 +212,116 @@ class PostOptimizor:
             print(f"Buffer: {buf_cell_name} min cost: {min_fanout_cost:.6f} with max fanout: {min_cost_fanout}")
         # print(f"Buffer min cost: {min_cost}, with buf cell: {min_cost_cell}, with fanout: {min_cost_fanout}")
         return best_buffer_netlist, min_cost
+    def get_wire_declaration_str(self, wires):
+        """
+        Given a list of wire names, 
+        return proper wire declaration lines for verilog file
+        """
+        wire_declaration_block = ""
+        if len(wires):
+            def chunk_list(lst, chunk_size):
+                for i in range(0, len(lst), chunk_size):
+                    yield lst[i:i + chunk_size]
+
+            # Generate the wire declaration block with a maximum of 10 nets per line
+            chunk_size = 30  # Maximum nets per line
+            wire_declaration_lines = [", ".join(chunk) for chunk in chunk_list(wires, chunk_size)]
+            wire_declaration_block = "  wire " + ",\n    ".join(wire_declaration_lines) + ";\n"
+        return wire_declaration_block
+    def _get_nets(self, design_str):
+        selected_wire = ""
+        pi_nets = []
+        for i in range(len(design_str)):
+            line = design_str[i].strip()
+            # print(line)
+            if line.startswith("input"):
+                line = line[5:].strip().replace(" ", "")
+                end = False
+                while True:
+                    if line[-1] == ';':
+                        end = True
+                    line = line[:-1]
+                    line_nets = line.split(",")
+                    if not selected_wire:
+                        selected_wire = line_nets[0]
+                    pi_nets += line_nets
+                    if end:
+                        break
+                    i += 1
+                    line = design_str[i].strip().replace(" ", "")
+                    # print(line, "Last: ", line[-5:])
+                return selected_wire, pi_nets
+        return None, None
+    def run_chain_insertion(self, design_path, chain_len=10):
+        """
+        insert chain of and gates starts with constant 1,
+        reduce the heuristic dynamic power value
+        """
+        with open(design_path, 'r') as f:
+            design_str = f.readlines()
+
+        net, pi_nets = self._get_nets(design_str)
+        # print(net, pi_nets)
+        new_chain_nets = [f"{net}_chain_{i}" for i in range(chain_len)]
+        xnor_cell = self.library.min_cell_map['xnor']['cell_name']
+        and_cell = self.library.min_cell_map['and']['cell_name']
+        # constant 1
+        chains = [f"{xnor_cell} c00000(.A({net}), .B({net}), .Y({new_chain_nets[0]}));\n"]
+        # and chain
+        chains += [f"{and_cell} c{i+1:05}(.A({new_chain_nets[i]}), .B({new_chain_nets[i]}), .Y({new_chain_nets[i+1]}));\n" for i in range(chain_len-1)]
+        # now we need to AND pi with out chain constant 1,
+        num_pi = len(pi_nets)
+        # print(pi_nets)
+        chains += [f"{and_cell} ca{i:05}(.A({pi_net}), .B({new_chain_nets[-1]}), .Y({pi_net}_chain));\n" for i, pi_net in enumerate(pi_nets)]
+
+
+        # all lines with pi in it should be renamed n2 -> n2_chain
+        net_driving_line = {pi_net: [] for pi_net in pi_nets}
+        # where new pi wires should be declared
+        wire_declaration_line = -1
+        new_pi_nets = [f"{pi_net}_chain" for pi_net in pi_nets]
+        
+        net_regex = re.compile(r'\.(?:A|B|Y)\(([^)]+)\)')
+        for i, line in enumerate(design_str):
+            if len(line.strip()) and line.strip()[-1] == ';' and wire_declaration_line == -1:
+                wire_declaration_line = i
+            # Find all nets in the current line
+            matches = net_regex.findall(line)
+            if len(matches) == 2:
+                A, Y = matches
+                if A in net_driving_line:
+                    net_driving_line[A].append(i)
+            elif len(matches) == 3:
+                A, B, Y = matches
+                if A in net_driving_line:
+                    net_driving_line[A].append(i)
+                if B in net_driving_line:
+                    net_driving_line[B].append(i)
+        # print(net_driving_line)
+
+        # modified_netlist = design_str[:]
+        modified_netlist, endmodule_str = design_str[:-3], design_str[-3:]
+        # replace pi in each lines with pi_chain
+        for pi_net in net_driving_line:
+            for i, line_index in enumerate(net_driving_line[pi_net]):
+                modified_netlist[line_index] = re.sub(rf'\.A\({pi_net}\)', f'.A({pi_net}_chain)', modified_netlist[line_index])
+                modified_netlist[line_index] = re.sub(rf'\.B\({pi_net}\)', f'.B({pi_net}_chain)', modified_netlist[line_index])
+
+        # declare new wires
+        combined_new_nets = new_pi_nets + new_chain_nets
+        
+        wire_declaration_block = self.get_wire_declaration_str(combined_new_nets)
+        modified_netlist.insert(wire_declaration_line + 1, wire_declaration_block)
+
+        # add chain to netlist
+        modified_netlist += chains
+        # write to file and get cost
+        file_name = basename(design_path).replace('.v', f"_chain.v")
+        dest = join(self.chain_temp_dir, file_name)
+        with open(dest, 'w') as file:
+            file.writelines(modified_netlist + endmodule_str)
+        cost = self.cost_interface.get_cost(dest)
+        print(dest, cost)
+
+        return dest, cost
+        
