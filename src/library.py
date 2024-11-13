@@ -1,7 +1,7 @@
 from json import load
-from cost_interface import CostInterface
 from numpy import percentile
-from config import Config
+from .cost_interface import CostInterface
+from .config import Config
 from os.path import join, exists
 from os import mkdir
 import random

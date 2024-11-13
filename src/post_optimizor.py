@@ -3,10 +3,10 @@ from os.path import basename, join, exists
 from os import mkdir
 from queue import Queue
 from collections import defaultdict
-from abcSession import abcSession
-from cost_interface import CostInterface
-from library import Library
-from config import Config
+from .abcSession import abcSession
+from .cost_interface import CostInterface
+from .library import Library
+from .config import Config
 buf_gate_count = 0
 class PostOptimizor:
     _instance = None

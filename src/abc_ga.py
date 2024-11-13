@@ -1,6 +1,6 @@
 from os.path import join
-from ga import GA
-from abcSession import abcSession
+from .ga import GA
+from .abcSession import abcSession
 
 class AbcGA(GA):
     def __init__(self, design_path, library_path, 

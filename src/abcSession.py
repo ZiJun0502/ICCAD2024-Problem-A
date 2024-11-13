@@ -4,9 +4,9 @@ import datetime
 import numpy as np
 import time
 from subprocess import check_output
-from cost_interface import CostInterface
-from config import Config
-from library import Library
+from .cost_interface import CostInterface
+from .config import Config
+from .library import Library
 class abcSession:
     """
     A class to represent a logic synthesis optimization session using ABC

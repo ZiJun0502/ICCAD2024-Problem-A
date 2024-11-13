@@ -2,10 +2,10 @@ import numpy as np
 import time
 from os.path import join, exists 
 from os import mkdir
-from cost_interface import CostInterface
-from library import Library
-from config import Config
-from abcSession import abcSession
+from .cost_interface import CostInterface
+from .library import Library
+from .config import Config
+from .abcSession import abcSession
 class SA:
     def __init__(self, init_solution, init_cost, cell_map,
                  temp_h=1000, temp_l = 0.1, cooling_rate=0.95, num_iterations=100,

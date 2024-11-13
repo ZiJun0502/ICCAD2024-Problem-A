@@ -3,10 +3,10 @@ import numpy as np
 from queue import PriorityQueue
 from os import mkdir
 from os.path import join, exists
-from library import Library
-from config import Config
-from cost_interface import CostInterface
-from abcSession import abcSession
+from .library import Library
+from .config import Config
+from .cost_interface import CostInterface
+from .abcSession import abcSession
 import time
 def log(message: str, end='\n'):
     print(message, end=end)
