@@ -10,16 +10,15 @@ import time
 import copy
 import yaml
 from parseArgs import *
-# from DRiLLS.model import A2C
-from DRiLLS.abcSession import abcSession
-from utils.cost_interface import CostInterface
-from utils.library import Library
-from utils.config import Config
-from utils.post_optimizor import PostOptimizor
-from sa.sa import SA
-from ga.ga import GA
-from ga.abc_ga import AbcGA
-from ga.gate_sizing_ga import GateSizingGA
+from src.abcSession import abcSession
+from src.cost_interface import CostInterface
+from src.library import Library
+from src.config import Config
+from src.post_optimizor import PostOptimizor
+from src.sa import SA
+from src.ga import GA
+from src.abc_ga import AbcGA
+from src.gate_sizing_ga import GateSizingGA
 
 import cProfile
 import pstats
